@@ -10,6 +10,8 @@
     "build": "expo export --platform web"
   },
   "dependencies": {
+    "@aws-amplify/ui-react-native": "^2.0.7",
+    "adb": "^0.2.0",
     "aws-amplify": "^6.16.3",
     "expo": "~55.0.6",
     "expo-status-bar": "~55.0.4",

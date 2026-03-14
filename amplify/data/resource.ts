@@ -14,6 +14,7 @@ const schema = a.schema({
     .model({
       name: a.string().required(),
       description: a.string(),
+      departmentId: a.id(),
       isActive: a.boolean().default(true),
     })
     .authorization((allow) => [allow.groups(['ADMIN'])]),
@@ -62,7 +63,6 @@ const schema = a.schema({
     .arguments({
       username: a.string().required(),
       email: a.string().required(),
-      temporaryPassword: a.string().required(),
       groupName: a.string(),
     })
     .returns(

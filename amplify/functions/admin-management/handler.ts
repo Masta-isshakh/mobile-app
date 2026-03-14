@@ -8,7 +8,7 @@ import {
 type InviteArgs = {
   username: string;
   email: string;
-  temporaryPassword: string;
+  temporaryPassword?: string;
   groupName?: string;
 };
 
@@ -26,7 +26,7 @@ type ResolverEvent = {
     groups?: string[];
     claims?: {
       [key: string]: unknown;
-      'cognito:groups'?: string[];
+      'cognito:groups'?: string[] | string;
     };
   };
 };
@@ -34,12 +34,26 @@ type ResolverEvent = {
 const client = new CognitoIdentityProviderClient({});
 
 function getGroups(event: ResolverEvent): string[] {
-  const groupsFromIdentity = event.identity?.groups ?? [];
+  const groups = new Set<string>(event.identity?.groups ?? []);
   const claimsGroups = event.identity?.claims?.['cognito:groups'];
+
   if (Array.isArray(claimsGroups)) {
-    return [...groupsFromIdentity, ...claimsGroups];
+    for (const group of claimsGroups) {
+      if (typeof group === 'string' && group.trim()) {
+        groups.add(group.trim());
+      }
+    }
+  } else if (typeof claimsGroups === 'string' && claimsGroups.trim()) {
+    // Some identity providers serialize groups as a single comma-separated claim.
+    for (const group of claimsGroups.split(',')) {
+      const normalized = group.trim();
+      if (normalized) {
+        groups.add(normalized);
+      }
+    }
   }
-  return groupsFromIdentity;
+
+  return [...groups];
 }
 
 function normalizeEmail(email: string): string {
@@ -59,7 +73,7 @@ async function inviteUser(event: ResolverEvent, userPoolId: string) {
       new AdminCreateUserCommand({
         UserPoolId: userPoolId,
         Username: cognitoUsername,
-        TemporaryPassword: temporaryPassword,
+        ...(temporaryPassword?.trim() ? { TemporaryPassword: temporaryPassword.trim() } : {}),
         DesiredDeliveryMediums: ['EMAIL'],
         UserAttributes: [
           { Name: 'email', Value: normalizedEmail },
@@ -79,7 +93,7 @@ async function inviteUser(event: ResolverEvent, userPoolId: string) {
       new AdminCreateUserCommand({
         UserPoolId: userPoolId,
         Username: cognitoUsername,
-        TemporaryPassword: temporaryPassword,
+        ...(temporaryPassword?.trim() ? { TemporaryPassword: temporaryPassword.trim() } : {}),
         MessageAction: 'RESEND',
         DesiredDeliveryMediums: ['EMAIL'],
         UserAttributes: [

@@ -1,4 +1,9 @@
-export type Role = { id: string; name: string; description?: string | null };
+export type Role = {
+  id: string;
+  name: string;
+  description?: string | null;
+  departmentId?: string | null;
+};
 export type Department = { id: string; name: string; description?: string | null };
 export type Policy = {
   id: string;
@@ -30,5 +35,6 @@ export type PermissionCheck = (resource: string, action: string) => boolean;
 export type BottomTabItem = {
   key: string;
   label: string;
+  icon?: string;
   subtitle?: string;
 };

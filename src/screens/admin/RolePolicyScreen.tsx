@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
+import { DropdownSelect } from '../../components/DropdownSelect';
 import { POLICY_CATALOG } from '../../constants/policyCatalog';
 import { client } from '../../lib/amplifyClient';
-import type { PermissionCheck, Policy, Role, RolePolicy } from '../../types';
+import type { Department, PermissionCheck, Policy, Role, RolePolicy } from '../../types';
 
 type Props = {
   can: PermissionCheck;
@@ -10,10 +11,12 @@ type Props = {
 
 export function RolePolicyScreen({ can }: Props) {
   const [roles, setRoles] = useState<Role[]>([]);
+  const [departments, setDepartments] = useState<Department[]>([]);
   const [policies, setPolicies] = useState<Policy[]>([]);
   const [rolePolicies, setRolePolicies] = useState<RolePolicy[]>([]);
   const [selectedRoleId, setSelectedRoleId] = useState('');
   const [newRoleName, setNewRoleName] = useState('');
+  const [newRoleDepartmentId, setNewRoleDepartmentId] = useState('');
   const [newPolicyName, setNewPolicyName] = useState('');
   const [newPolicyResource, setNewPolicyResource] = useState('');
   const [newPolicyAction, setNewPolicyAction] = useState('');
@@ -47,15 +50,25 @@ export function RolePolicyScreen({ can }: Props) {
     return Array.from(map.entries());
   }, []);
 
+  const departmentNameById = useMemo(() => {
+    return new Map(departments.map((department) => [department.id, department.name]));
+  }, [departments]);
+
+  const departmentOptions = useMemo(() => {
+    return departments.map((department) => ({ label: department.name, value: department.id }));
+  }, [departments]);
+
   const loadData = useCallback(async () => {
-    const [rolesResponse, policiesResponse, rolePoliciesResponse] = await Promise.all([
+    const [rolesResponse, departmentsResponse, policiesResponse, rolePoliciesResponse] = await Promise.all([
       client.models.Role.list(),
+      client.models.Department.list(),
       client.models.Policy.list(),
       client.models.RolePolicy.list(),
     ]);
 
     const nextRoles = rolesResponse.data ?? [];
     setRoles(nextRoles);
+    setDepartments(departmentsResponse.data ?? []);
     setPolicies(policiesResponse.data ?? []);
     setRolePolicies(rolePoliciesResponse.data ?? []);
 
@@ -104,11 +117,21 @@ export function RolePolicyScreen({ can }: Props) {
       return;
     }
 
-    await client.models.Role.create({ name: newRoleName.trim(), isActive: true });
+    if (!newRoleDepartmentId) {
+      setMessage('Select a department for the role.');
+      return;
+    }
+
+    await client.models.Role.create({
+      name: newRoleName.trim(),
+      departmentId: newRoleDepartmentId,
+      isActive: true,
+    });
     setNewRoleName('');
+    setNewRoleDepartmentId('');
     setMessage('Role created.');
     await loadData();
-  }, [can, loadData, newRoleName]);
+  }, [can, loadData, newRoleDepartmentId, newRoleName]);
 
   const createPolicy = useCallback(async () => {
     if (!can('policies', 'create')) {
@@ -180,7 +203,9 @@ export function RolePolicyScreen({ can }: Props) {
               style={[styles.chip, selectedRoleId === role.id ? styles.chipActive : undefined]}
             >
               <Text style={[styles.chipText, selectedRoleId === role.id ? styles.chipTextActive : undefined]}>
-                {role.name}
+                {role.departmentId
+                  ? `${role.name} - ${departmentNameById.get(role.departmentId) ?? 'Department'}`
+                  : role.name}
               </Text>
             </Pressable>
           ))}
@@ -194,6 +219,13 @@ export function RolePolicyScreen({ can }: Props) {
           value={newRoleName}
           placeholder="New role name"
           onChangeText={setNewRoleName}
+        />
+        <DropdownSelect
+          label="Department"
+          value={newRoleDepartmentId}
+          placeholder="Select department"
+          options={departmentOptions}
+          onChange={setNewRoleDepartmentId}
         />
         <Pressable
           style={[styles.primaryButton, !can('roles', 'create') ? styles.buttonDisabled : undefined]}

@@ -8,6 +8,8 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { DropdownSelect } from '../../components/DropdownSelect';
+import { SuccessPopup } from '../../components/SuccessPopup';
 import { client } from '../../lib/amplifyClient';
 import type { AppUser, Department, PermissionCheck, Role, UserRole } from '../../types';
 
@@ -34,9 +36,10 @@ export function UserManagementScreen({ can }: Props) {
   const [selectedDepartmentId, setSelectedDepartmentId] = useState('');
   const [inviteUsername, setInviteUsername] = useState('');
   const [inviteEmail, setInviteEmail] = useState('');
-  const [inviteTempPassword, setInviteTempPassword] = useState('Temp@12345');
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showInviteSuccess, setShowInviteSuccess] = useState(false);
+  const [inviteSuccessText, setInviteSuccessText] = useState('');
 
   const [editing, setEditing] = useState<EditForm | null>(null);
 
@@ -57,6 +60,28 @@ export function UserManagementScreen({ can }: Props) {
   const departmentNameById = useMemo(() => {
     return new Map(departments.map((d) => [d.id, d.name]));
   }, [departments]);
+
+  const departmentOptions = useMemo(() => {
+    return departments.map((department) => ({
+      label: department.name,
+      value: department.id,
+    }));
+  }, [departments]);
+
+  const filteredRoleOptions = useMemo(() => {
+    return roles
+      .filter((role) => role.departmentId === selectedDepartmentId)
+      .map((role) => ({ label: role.name, value: role.id }));
+  }, [roles, selectedDepartmentId]);
+
+  const allRoleOptions = useMemo(() => {
+    return roles.map((role) => ({
+      label: role.departmentId
+        ? `${role.name} (${departmentNameById.get(role.departmentId) ?? 'Department'})`
+        : role.name,
+      value: role.id,
+    }));
+  }, [departmentNameById, roles]);
 
   const loadData = useCallback(async () => {
     const [usersResponse, rolesResponse, departmentsResponse, userRolesResponse] = await Promise.all([
@@ -87,6 +112,16 @@ export function UserManagementScreen({ can }: Props) {
       return;
     }
 
+    if (!selectedDepartmentId) {
+      setMessage('Please select a department before inviting the user.');
+      return;
+    }
+
+    if (!selectedRoleId) {
+      setMessage('Please select a role for the selected department.');
+      return;
+    }
+
     setLoading(true);
     setMessage('');
 
@@ -94,7 +129,6 @@ export function UserManagementScreen({ can }: Props) {
       const inviteResult = await client.mutations.inviteUser({
         username: inviteUsername.trim(),
         email: inviteEmail.trim(),
-        temporaryPassword: inviteTempPassword,
         groupName: 'FREELANCER',
       });
 
@@ -118,7 +152,7 @@ export function UserManagementScreen({ can }: Props) {
           email: normalizedEmail,
           cognitoUsername,
           status: 'INVITED',
-          departmentId: can('users', 'assignDepartment') ? selectedDepartmentId || undefined : undefined,
+          departmentId: selectedDepartmentId,
         });
         appUserId = updated.data?.id ?? existingUser.id;
       } else {
@@ -127,12 +161,12 @@ export function UserManagementScreen({ can }: Props) {
           email: normalizedEmail,
           cognitoUsername,
           status: 'INVITED',
-          departmentId: can('users', 'assignDepartment') ? selectedDepartmentId || undefined : undefined,
+          departmentId: selectedDepartmentId,
         });
         appUserId = createdUser.data?.id;
       }
 
-      if (can('users', 'assignRole') && selectedRoleId && appUserId) {
+      if (selectedRoleId && appUserId) {
         const relation = userRoles.find((row) => row.userId === appUserId);
         if (relation) {
           await client.models.UserRole.update({ id: relation.id, roleId: selectedRoleId });
@@ -142,8 +176,12 @@ export function UserManagementScreen({ can }: Props) {
       }
 
       setMessage(inviteResult.data?.message ?? 'User invited successfully.');
+      setInviteSuccessText(inviteResult.data?.message ?? 'The invitation email was sent successfully.');
+      setShowInviteSuccess(true);
       setInviteUsername('');
       setInviteEmail('');
+      setSelectedDepartmentId('');
+      setSelectedRoleId('');
       await loadData();
     } catch (error: unknown) {
       setMessage(`Invite failed: ${(error as Error).message}`);
@@ -153,7 +191,6 @@ export function UserManagementScreen({ can }: Props) {
   }, [
     can,
     inviteEmail,
-    inviteTempPassword,
     inviteUsername,
     loadData,
     selectedDepartmentId,
@@ -263,39 +300,30 @@ export function UserManagementScreen({ can }: Props) {
           autoCapitalize="none"
           onChangeText={setInviteEmail}
         />
-        <TextInput
-          style={styles.input}
-          value={inviteTempPassword}
-          placeholder="Temporary password"
-          secureTextEntry
-          onChangeText={setInviteTempPassword}
+
+        <DropdownSelect
+          label="Department"
+          value={selectedDepartmentId}
+          placeholder="Select department"
+          options={departmentOptions}
+          onChange={(nextDepartmentId) => {
+            setSelectedDepartmentId(nextDepartmentId);
+            setSelectedRoleId('');
+          }}
         />
 
-        <Text style={styles.metaLabel}>Department</Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-          {departments.map((department) => (
-            <Pressable
-              key={department.id}
-              onPress={() => setSelectedDepartmentId(department.id)}
-              style={[styles.chip, selectedDepartmentId === department.id ? styles.chipActive : undefined]}
-            >
-              <Text style={styles.chipText}>{department.name}</Text>
-            </Pressable>
-          ))}
-        </ScrollView>
-
-        <Text style={styles.metaLabel}>Role</Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-          {roles.map((role) => (
-            <Pressable
-              key={role.id}
-              onPress={() => setSelectedRoleId(role.id)}
-              style={[styles.chip, selectedRoleId === role.id ? styles.chipActive : undefined]}
-            >
-              <Text style={styles.chipText}>{role.name}</Text>
-            </Pressable>
-          ))}
-        </ScrollView>
+        <DropdownSelect
+          label="Role"
+          value={selectedRoleId}
+          placeholder={
+            selectedDepartmentId
+              ? 'Select role in selected department'
+              : 'Select department first'
+          }
+          options={filteredRoleOptions}
+          disabled={!selectedDepartmentId}
+          onChange={setSelectedRoleId}
+        />
 
         <Pressable
           style={[styles.primaryButton, !can('users', 'invite') ? styles.buttonDisabled : undefined]}
@@ -351,17 +379,20 @@ export function UserManagementScreen({ can }: Props) {
           </ScrollView>
 
           <Text style={styles.metaLabel}>Role</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-            {roles.map((role) => (
-              <Pressable
-                key={role.id}
-                onPress={() => setEditing((prev) => (prev ? { ...prev, roleId: role.id } : prev))}
-                style={[styles.chip, editing.roleId === role.id ? styles.chipActive : undefined]}
-              >
-                <Text style={styles.chipText}>{role.name}</Text>
-              </Pressable>
-            ))}
-          </ScrollView>
+          <DropdownSelect
+            label="Role"
+            value={editing.roleId}
+            placeholder="Select role"
+            options={
+              editing.departmentId
+                ? roles
+                    .filter((role) => role.departmentId === editing.departmentId)
+                    .map((role) => ({ label: role.name, value: role.id }))
+                : allRoleOptions
+            }
+            disabled={!can('users', 'assignRole')}
+            onChange={(value) => setEditing((prev) => (prev ? { ...prev, roleId: value } : prev))}
+          />
 
           <View style={styles.rowWrap}>
             <Pressable
@@ -424,6 +455,13 @@ export function UserManagementScreen({ can }: Props) {
       </View>
 
       {!!message && <Text style={styles.message}>{message}</Text>}
+
+      <SuccessPopup
+        visible={showInviteSuccess}
+        title="Invitation Sent"
+        description={inviteSuccessText}
+        onClose={() => setShowInviteSuccess(false)}
+      />
     </ScrollView>
   );
 }

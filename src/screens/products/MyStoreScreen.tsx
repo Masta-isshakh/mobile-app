@@ -16,7 +16,7 @@ export function MyStoreScreen({ authUser, isAdmin }: Props) {
 
   const loadData = useCallback(async () => {
     const [productsResponse, storeResponse] = await Promise.all([
-      client.models.Product.list(),
+      client.models.ProductX.list(),
       isAdmin
         ? client.models.StoreProduct.list()
         : client.models.StoreProduct.list({ filter: { ownerSub: { eq: authUser.sub } } }),

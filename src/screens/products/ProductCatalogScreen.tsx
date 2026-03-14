@@ -72,7 +72,7 @@ export function ProductCatalogScreen({ authUser }: Props) {
 
   const loadData = useCallback(async () => {
     const [productsResponse, ratingsResponse, storeResponse] = await Promise.all([
-      client.models.Product.list(),
+      client.models.ProductX.list(),
       client.models.ProductRating.list(),
       client.models.StoreProduct.list({ filter: { ownerSub: { eq: authUser.sub } } }),
     ]);
@@ -167,7 +167,7 @@ export function ProductCatalogScreen({ authUser }: Props) {
     setMessage('');
 
     try {
-      const productResponse = await client.models.Product.create({
+      const productResponse = await client.models.ProductX.create({
         name: name.trim(),
         description: description.trim() || undefined,
         imageDataUrl: imageDataUrl || undefined,

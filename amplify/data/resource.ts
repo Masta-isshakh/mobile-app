@@ -67,8 +67,8 @@ const schema = a.schema({
       creatorUsername: a.string().required(),
     })
     .authorization((allow) => [
-      allow.groups(['ADMIN', 'FREELANCER']).to(['read']),
-      allow.groups(['ADMIN']).to(['create', 'update', 'delete']),
+      allow.groups(['ADMIN']).to(['create', 'read', 'update', 'delete']),
+      allow.groups(['FREELANCER']).to(['read']),
       allow.ownerDefinedIn('creatorSub').to(['create', 'read', 'update', 'delete']),
     ]),
 
@@ -92,7 +92,7 @@ const schema = a.schema({
     })
     .authorization((allow) => [
       allow.groups(['ADMIN']).to(['read', 'delete']),
-      allow.groups(['ADMIN', 'FREELANCER']).to(['read']),
+      allow.groups(['FREELANCER']).to(['read']),
       allow.ownerDefinedIn('userSub').to(['create', 'read', 'update', 'delete']),
     ]),
 

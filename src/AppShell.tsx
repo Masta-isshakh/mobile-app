@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, SafeAreaView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { fetchAuthSession, getCurrentUser } from 'aws-amplify/auth';
 import { client } from './lib/amplifyClient';
 import { buildPermissionSet } from './lib/permissions';
 import { AdminLayout } from './layouts/AdminLayout';
 import { FreelancerLayout } from './layouts/FreelancerLayout';
-import type { AppUser, Policy, RolePolicy, UserRole } from './types';
+import type { AppUser, AuthUserContext, Policy, RolePolicy, UserRole } from './types';
 
 type AuthState = {
   loading: boolean;
@@ -13,6 +14,7 @@ type AuthState = {
   isAdminGroup: boolean;
   permissionKeys: Set<string>;
   currentProfile: AppUser | null;
+  authUser: AuthUserContext;
 };
 
 export function AppShell() {
@@ -22,18 +24,24 @@ export function AppShell() {
     isAdminGroup: false,
     permissionKeys: new Set<string>(),
     currentProfile: null,
+    authUser: { sub: '', username: '' },
   });
 
   const loadAuthContext = useCallback(async () => {
     try {
       const session = await fetchAuthSession();
       const tokenPayload = session.tokens?.idToken?.payload as
-        | { 'cognito:groups'?: string[] }
+        | { 'cognito:groups'?: string[]; sub?: string }
         | undefined;
       const groups = tokenPayload?.['cognito:groups'] ?? [];
       const isAdminGroup = groups.includes('ADMIN');
 
       const currentUser = await getCurrentUser();
+      const authUser: AuthUserContext = {
+        sub: tokenPayload?.sub ?? '',
+        username: currentUser.username,
+      };
+
       const usersResponse = await client.models.AppUser.list({
         filter: { username: { eq: currentUser.username } },
       });
@@ -62,6 +70,7 @@ export function AppShell() {
         isAdminGroup,
         permissionKeys,
         currentProfile,
+        authUser,
       });
     } catch (error: unknown) {
       setState((prev) => ({
@@ -111,7 +120,11 @@ export function AppShell() {
     );
   }
 
-  return state.isAdminGroup ? <AdminLayout can={can} /> : <FreelancerLayout can={can} />;
+  return state.isAdminGroup ? (
+    <AdminLayout can={can} authUser={state.authUser} />
+  ) : (
+    <FreelancerLayout can={can} authUser={state.authUser} />
+  );
 }
 
 const styles = StyleSheet.create({

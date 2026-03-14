@@ -1,4 +1,5 @@
 import { StyleSheet, Text } from 'react-native';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { authenticatorTextUtil } from '@aws-amplify/ui';
 import { Authenticator, type SignInProps } from '@aws-amplify/ui-react-native';
 import { DefaultContent } from '@aws-amplify/ui-react-native/lib/Authenticator/common';
@@ -57,16 +58,18 @@ function LockedDownSignIn({
 }
 
 export default function App() {
-  if (!amplifyConfig) {
-    return <MissingConfigScreen />;
-  }
-
   return (
-    <Authenticator.Provider>
-      <Authenticator components={{ SignIn: LockedDownSignIn }}>
-        <AppShell />
-      </Authenticator>
-    </Authenticator.Provider>
+    <SafeAreaProvider>
+      {!amplifyConfig ? (
+        <MissingConfigScreen />
+      ) : (
+        <Authenticator.Provider>
+          <Authenticator components={{ SignIn: LockedDownSignIn }}>
+            <AppShell />
+          </Authenticator>
+        </Authenticator.Provider>
+      )}
+    </SafeAreaProvider>
   );
 }
 

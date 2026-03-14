@@ -1,21 +1,25 @@
 import { useMemo, useState } from 'react';
-import { SafeAreaView, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { BottomTabNavigation } from '../components/BottomTabNavigation';
 import { FreelancerScreen } from '../screens/freelancer/FreelancerScreen';
-import type { BottomTabItem, PermissionCheck } from '../types';
+import { MyStoreScreen } from '../screens/products/MyStoreScreen';
+import { ProductCatalogScreen } from '../screens/products/ProductCatalogScreen';
+import type { AuthUserContext, BottomTabItem, PermissionCheck } from '../types';
 
 type Props = {
   can: PermissionCheck;
+  authUser: AuthUserContext;
 };
 
-export function FreelancerLayout({ can }: Props) {
+export function FreelancerLayout({ can, authUser }: Props) {
   const tabs = useMemo<BottomTabItem[]>(() => {
     return [
-      { key: 'home', label: 'Home', icon: 'H' },
-      { key: 'products', label: 'Products', icon: 'P' },
-      { key: 'settings', label: 'Settings', icon: 'S' },
-      { key: 'store', label: 'My Store', icon: 'M' },
-      { key: 'profile', label: 'Profile', icon: 'U' },
+      { key: 'home', label: 'Home', icon: 'home' },
+      { key: 'products', label: 'Products', icon: 'grid' },
+      { key: 'settings', label: 'Settings', icon: 'settings' },
+      { key: 'store', label: 'My Store', icon: 'storefront' },
+      { key: 'profile', label: 'Profile', icon: 'person' },
     ];
   }, []);
 
@@ -32,10 +36,7 @@ export function FreelancerLayout({ can }: Props) {
         {tab === 'home' && <FreelancerScreen can={can} />}
 
         {tab === 'products' && (
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>Products</Text>
-            <Text style={styles.cardText}>Product area placeholder for freelancer-specific catalog data.</Text>
-          </View>
+          <ProductCatalogScreen authUser={authUser} />
         )}
 
         {tab === 'settings' && (
@@ -46,10 +47,7 @@ export function FreelancerLayout({ can }: Props) {
         )}
 
         {tab === 'store' && (
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>My Store</Text>
-            <Text style={styles.cardText}>Store performance and activity summary placeholder.</Text>
-          </View>
+          <MyStoreScreen authUser={authUser} isAdmin={false} />
         )}
 
         {tab === 'profile' && (

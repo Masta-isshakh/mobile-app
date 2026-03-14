@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { getCurrentUser } from 'aws-amplify/auth';
 import { client } from '../../lib/amplifyClient';
 import type { AppUser, PermissionCheck, Policy, RolePolicy, UserRole } from '../../types';
@@ -72,25 +72,25 @@ export function FreelancerScreen({ can }: Props) {
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.centered}>
+      <View style={styles.centered}>
         <ActivityIndicator />
-      </SafeAreaView>
+      </View>
     );
   }
 
   if (!canViewPage) {
     return (
-      <SafeAreaView style={styles.container}>
+      <View style={styles.container}>
         <View style={styles.card}>
           <Text style={styles.sectionTitle}>No Access</Text>
           <Text style={styles.metaText}>Your current role does not allow this page.</Text>
         </View>
-      </SafeAreaView>
+      </View>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={styles.container}>
       <ScrollView contentContainerStyle={styles.contentWrap}>
         <View style={styles.card}>
           <Text style={styles.sectionTitle}>Freelancer Workspace</Text>
@@ -128,7 +128,7 @@ export function FreelancerScreen({ can }: Props) {
           ))}
         </View>
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
 

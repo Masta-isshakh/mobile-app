@@ -1,5 +1,14 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import type { ComponentProps } from 'react';
+import { Ionicons } from '@expo/vector-icons';
+import { Dimensions, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { BottomTabItem } from '../types';
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const ICON_SIZE = SCREEN_WIDTH < 380 ? 20 : 22;
+const TAB_MAX_WIDTH = SCREEN_WIDTH > 760 ? 720 : SCREEN_WIDTH > 520 ? 560 : 440;
+
+type IoniconName = ComponentProps<typeof Ionicons>['name'];
 
 type Props = {
   tabs: BottomTabItem[];
@@ -8,11 +17,16 @@ type Props = {
 };
 
 export function BottomTabNavigation({ tabs, current, onChange }: Props) {
+  const insets = useSafeAreaInsets();
+  const bottomPadding = Math.max(insets.bottom + (Platform.OS === 'android' ? 18 : 10), 22);
+
   return (
-    <View style={styles.outerWrap}>
-      <View style={styles.tabWrap}>
+    <View style={[styles.outerWrap, { paddingBottom: bottomPadding }]}>
+      <View style={[styles.tabWrap, { maxWidth: TAB_MAX_WIDTH }]}> 
         {tabs.map((tab) => {
           const active = current === tab.key;
+          const baseIcon = tab.icon ?? 'ellipse';
+          const iconName = (active ? baseIcon : `${baseIcon}-outline`) as IoniconName;
           return (
             <Pressable
               key={tab.key}
@@ -20,7 +34,11 @@ export function BottomTabNavigation({ tabs, current, onChange }: Props) {
               style={styles.tabButton}
             >
               <View style={[styles.iconBubble, active ? styles.iconBubbleActive : undefined]}>
-                <Text style={[styles.iconText, active ? styles.iconTextActive : undefined]}>{tab.icon ?? 'o'}</Text>
+                <Ionicons
+                  name={iconName}
+                  size={ICON_SIZE}
+                  color={active ? '#8b3cf6' : '#6b7280'}
+                />
               </View>
               <Text style={[styles.tabTitle, active ? styles.tabTitleActive : undefined]}>{tab.label}</Text>
             </Pressable>
@@ -33,12 +51,14 @@ export function BottomTabNavigation({ tabs, current, onChange }: Props) {
 
 const styles = StyleSheet.create({
   outerWrap: {
+    width: '100%',
     paddingHorizontal: 18,
-    paddingBottom: 14,
     paddingTop: 10,
     backgroundColor: 'transparent',
+    alignItems: 'center',
   },
   tabWrap: {
+    width: '100%',
     flexDirection: 'row',
     backgroundColor: '#ffffff',
     borderRadius: 22,
@@ -67,14 +87,6 @@ const styles = StyleSheet.create({
   },
   iconBubbleActive: {
     backgroundColor: '#efe4ff',
-  },
-  iconText: {
-    fontSize: 16,
-    color: '#6b7280',
-    fontWeight: '700',
-  },
-  iconTextActive: {
-    color: '#8b3cf6',
   },
   tabTitle: {
     fontSize: 11,

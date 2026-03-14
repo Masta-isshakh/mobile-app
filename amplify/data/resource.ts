@@ -58,6 +58,44 @@ const schema = a.schema({
     })
     .authorization((allow) => [allow.groups(['ADMIN'])]),
 
+  ProductX: a
+    .model({
+      name: a.string().required(),
+      description: a.string(),
+      imageDataUrl: a.string(),
+      creatorSub: a.string().required(),
+      creatorUsername: a.string().required(),
+    })
+    .authorization((allow) => [
+      allow.groups(['ADMIN', 'FREELANCER']).to(['read']),
+      allow.groups(['ADMIN']).to(['create', 'update', 'delete']),
+      allow.ownerDefinedIn('creatorSub').to(['create', 'read', 'update', 'delete']),
+    ]),
+
+  StoreProduct: a
+    .model({
+      productId: a.id().required(),
+      ownerSub: a.string().required(),
+      ownerUsername: a.string().required(),
+    })
+    .authorization((allow) => [
+      allow.groups(['ADMIN']).to(['read', 'delete']),
+      allow.ownerDefinedIn('ownerSub').to(['create', 'read', 'delete']),
+    ]),
+
+  ProductRating: a
+    .model({
+      productId: a.id().required(),
+      userSub: a.string().required(),
+      score: a.integer().required(),
+      comment: a.string(),
+    })
+    .authorization((allow) => [
+      allow.groups(['ADMIN']).to(['read', 'delete']),
+      allow.groups(['ADMIN', 'FREELANCER']).to(['read']),
+      allow.ownerDefinedIn('userSub').to(['create', 'read', 'update', 'delete']),
+    ]),
+
   inviteUser: a
     .mutation()
     .arguments({

@@ -1,23 +1,27 @@
 import { useMemo, useState } from 'react';
-import { Pressable, SafeAreaView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { BottomTabNavigation } from '../components/BottomTabNavigation';
 import { DepartmentManagementScreen } from '../screens/admin/DepartmentManagementScreen';
 import { RolePolicyScreen } from '../screens/admin/RolePolicyScreen';
 import { UserManagementScreen } from '../screens/admin/UserManagementScreen';
-import type { BottomTabItem, PermissionCheck } from '../types';
+import { MyStoreScreen } from '../screens/products/MyStoreScreen';
+import { ProductCatalogScreen } from '../screens/products/ProductCatalogScreen';
+import type { AuthUserContext, BottomTabItem, PermissionCheck } from '../types';
 
 type Props = {
   can: PermissionCheck;
+  authUser: AuthUserContext;
 };
 
-export function AdminLayout({ can }: Props) {
+export function AdminLayout({ can, authUser }: Props) {
   const tabs = useMemo<BottomTabItem[]>(() => {
     return [
-      { key: 'home', label: 'Home', icon: 'H' },
-      { key: 'products', label: 'Products', icon: 'P' },
-      { key: 'settings', label: 'Settings', icon: 'S' },
-      { key: 'store', label: 'My Store', icon: 'M' },
-      { key: 'profile', label: 'Profile', icon: 'U' },
+      { key: 'home', label: 'Home', icon: 'home' },
+      { key: 'products', label: 'Products', icon: 'grid' },
+      { key: 'settings', label: 'Settings', icon: 'settings' },
+      { key: 'store', label: 'My Store', icon: 'storefront' },
+      { key: 'profile', label: 'Profile', icon: 'person' },
     ];
   }, [can]);
 
@@ -34,10 +38,7 @@ export function AdminLayout({ can }: Props) {
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Control Center</Text>
-        <Text style={styles.subtitle}>Manage users, departments and roles from one settings hub.</Text>
-      </View>
+
 
       <View style={styles.content}>
         {currentTab === 'home' && (
@@ -48,17 +49,11 @@ export function AdminLayout({ can }: Props) {
         )}
 
         {currentTab === 'products' && (
-          <View style={styles.card}>
-            <Text style={styles.sectionTitle}>Products</Text>
-            <Text style={styles.paragraph}>Product dashboard placeholder. You can plug your product catalog here.</Text>
-          </View>
+          <ProductCatalogScreen authUser={authUser} />
         )}
 
         {currentTab === 'store' && (
-          <View style={styles.card}>
-            <Text style={styles.sectionTitle}>My Store</Text>
-            <Text style={styles.paragraph}>Store analytics placeholder. Add storefront metrics in this area.</Text>
-          </View>
+          <MyStoreScreen authUser={authUser} isAdmin />
         )}
 
         {currentTab === 'profile' && (
@@ -107,23 +102,10 @@ export function AdminLayout({ can }: Props) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    paddingTop: 16,
     backgroundColor: '#efe7ff',
   },
-  header: {
-    paddingTop: 16,
-    paddingHorizontal: 16,
-    paddingBottom: 10,
-  },
-  title: {
-    fontSize: 26,
-    fontWeight: '800',
-    color: '#30125d',
-  },
-  subtitle: {
-    marginTop: 6,
-    fontSize: 14,
-    color: '#5b4b7a',
-  },
+
   content: {
     flex: 1,
   },

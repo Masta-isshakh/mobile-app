@@ -30,6 +30,35 @@ export type RolePolicy = {
   effect?: 'ALLOW' | 'DENY' | null;
 };
 
+export type Product = {
+  id: string;
+  name: string;
+  description?: string | null;
+  imageDataUrl?: string | null;
+  creatorSub: string;
+  creatorUsername: string;
+};
+
+export type StoreProduct = {
+  id: string;
+  productId: string;
+  ownerSub: string;
+  ownerUsername: string;
+};
+
+export type ProductRating = {
+  id: string;
+  productId: string;
+  userSub: string;
+  score: number;
+  comment?: string | null;
+};
+
+export type AuthUserContext = {
+  sub: string;
+  username: string;
+};
+
 export type PermissionCheck = (resource: string, action: string) => boolean;
 
 export type BottomTabItem = {

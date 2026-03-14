@@ -10,10 +10,13 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { authenticatorTextUtil } from '@aws-amplify/ui';
 import { Amplify } from 'aws-amplify';
 import { generateClient } from 'aws-amplify/data';
 import { fetchAuthSession, getCurrentUser } from 'aws-amplify/auth';
-import { Authenticator } from '@aws-amplify/ui-react-native';
+import { Authenticator, type SignInProps } from '@aws-amplify/ui-react-native';
+import { DefaultContent } from '@aws-amplify/ui-react-native/lib/Authenticator/common';
+import { useFieldValues } from '@aws-amplify/ui-react-native/lib/Authenticator/hooks';
 import type { Schema } from './amplify/data/resource';
 
 declare const require: (path: string) => unknown;
@@ -47,6 +50,55 @@ type UserRole = { id: string; userId: string; roleId: string };
 type RolePolicy = { id: string; roleId: string; policyId: string; effect?: 'ALLOW' | 'DENY' | null };
 
 type TabKey = 'users' | 'departments' | 'roles';
+
+function LockedDownSignIn({
+  fields,
+  handleBlur,
+  handleChange,
+  handleSubmit,
+  validationErrors,
+  ...rest
+}: SignInProps) {
+  const { getSignInTabText, getSignInText } = authenticatorTextUtil;
+  const {
+    disableFormSubmit: disabled,
+    fields: fieldsWithHandlers,
+    fieldValidationErrors,
+    handleFormSubmit,
+  } = useFieldValues({
+    componentName: 'SignIn',
+    fields,
+    handleBlur,
+    handleChange,
+    handleSubmit,
+    validationErrors,
+  });
+
+  return (
+    <DefaultContent
+      {...rest}
+      body={
+        <Text style={styles.authHint}>
+          Account creation and password resets are managed by an administrator. The first admin user must
+          be created manually in the Cognito console and added to the ADMIN group.
+        </Text>
+      }
+      buttons={{
+        primary: {
+          children: getSignInText(),
+          disabled,
+          onPress: handleFormSubmit,
+        },
+      }}
+      fields={fieldsWithHandlers}
+      Footer={Authenticator.SignIn.Footer}
+      FormFields={Authenticator.SignIn.FormFields}
+      Header={Authenticator.SignIn.Header}
+      headerText={getSignInTabText()}
+      validationErrors={fieldValidationErrors}
+    />
+  );
+}
 
 function MissingConfigScreen() {
   return (
@@ -613,11 +665,10 @@ export default function App() {
 
   return (
     <Authenticator.Provider>
-          <Authenticator>
-      <AppShell />
-    </Authenticator>
+      <Authenticator components={{ SignIn: LockedDownSignIn }}>
+        <AppShell />
+      </Authenticator>
     </Authenticator.Provider>
-
   );
 }
 
@@ -649,6 +700,11 @@ const styles = StyleSheet.create({
   },
   paragraph: {
     fontSize: 14,
+    color: '#4f5d75',
+  },
+  authHint: {
+    fontSize: 13,
+    lineHeight: 20,
     color: '#4f5d75',
   },
   codeBlock: {

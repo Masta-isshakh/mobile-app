@@ -11,6 +11,7 @@ export type AppUser = {
   id: string;
   username: string;
   email: string;
+  cognitoUsername?: string | null;
   displayName?: string | null;
   status?: string | null;
   departmentId?: string | null;

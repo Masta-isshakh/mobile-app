@@ -1,6 +1,7 @@
 import {
   AdminAddUserToGroupCommand,
   AdminCreateUserCommand,
+  AdminDeleteUserCommand,
   CognitoIdentityProviderClient,
 } from '@aws-sdk/client-cognito-identity-provider';
 
@@ -11,8 +12,16 @@ type InviteArgs = {
   groupName?: string;
 };
 
+type DeleteArgs = {
+  cognitoUsername?: string;
+  email?: string;
+};
+
 type ResolverEvent = {
-  arguments: InviteArgs;
+  arguments: InviteArgs & DeleteArgs;
+  info?: {
+    fieldName?: string;
+  };
   identity?: {
     groups?: string[];
     claims?: {
@@ -33,6 +42,103 @@ function getGroups(event: ResolverEvent): string[] {
   return groupsFromIdentity;
 }
 
+function normalizeEmail(email: string): string {
+  return email.trim().toLowerCase();
+}
+
+async function inviteUser(event: ResolverEvent, userPoolId: string) {
+  const { username, email, temporaryPassword, groupName } = event.arguments;
+  const normalizedEmail = normalizeEmail(email);
+  const cognitoUsername = normalizedEmail;
+  const targetGroup = groupName?.trim() || 'FREELANCER';
+
+  let invitationStatus: 'SENT' | 'RESENT' = 'SENT';
+
+  try {
+    await client.send(
+      new AdminCreateUserCommand({
+        UserPoolId: userPoolId,
+        Username: cognitoUsername,
+        TemporaryPassword: temporaryPassword,
+        DesiredDeliveryMediums: ['EMAIL'],
+        UserAttributes: [
+          { Name: 'email', Value: normalizedEmail },
+          { Name: 'email_verified', Value: 'true' },
+          { Name: 'preferred_username', Value: username.trim() },
+        ],
+      }),
+    );
+  } catch (error: unknown) {
+    const name = (error as { name?: string }).name;
+    if (name !== 'UsernameExistsException') {
+      throw error;
+    }
+
+    invitationStatus = 'RESENT';
+    await client.send(
+      new AdminCreateUserCommand({
+        UserPoolId: userPoolId,
+        Username: cognitoUsername,
+        TemporaryPassword: temporaryPassword,
+        MessageAction: 'RESEND',
+        DesiredDeliveryMediums: ['EMAIL'],
+        UserAttributes: [
+          { Name: 'email', Value: normalizedEmail },
+          { Name: 'email_verified', Value: 'true' },
+          { Name: 'preferred_username', Value: username.trim() },
+        ],
+      }),
+    );
+  }
+
+  await client.send(
+    new AdminAddUserToGroupCommand({
+      UserPoolId: userPoolId,
+      Username: cognitoUsername,
+      GroupName: targetGroup,
+    }),
+  );
+
+  return {
+    username,
+    cognitoUsername,
+    status: 'INVITED',
+    message:
+      invitationStatus === 'SENT'
+        ? `Invitation email sent to ${normalizedEmail}.`
+        : `User already existed. Invitation email resent to ${normalizedEmail}.`,
+  };
+}
+
+async function adminDeleteUser(event: ResolverEvent, userPoolId: string) {
+  const { cognitoUsername, email } = event.arguments;
+  const usernameToDelete = cognitoUsername?.trim() || (email ? normalizeEmail(email) : '');
+
+  if (!usernameToDelete) {
+    throw new Error('Either cognitoUsername or email is required to delete a user.');
+  }
+
+  try {
+    await client.send(
+      new AdminDeleteUserCommand({
+        UserPoolId: userPoolId,
+        Username: usernameToDelete,
+      }),
+    );
+  } catch (error: unknown) {
+    const name = (error as { name?: string }).name;
+    if (name !== 'UserNotFoundException') {
+      throw error;
+    }
+  }
+
+  return {
+    username: usernameToDelete,
+    status: 'DELETED',
+    message: `User ${usernameToDelete} deleted in Cognito.`,
+  };
+}
+
 export const handler = async (event: ResolverEvent) => {
   const groups = getGroups(event);
   if (!groups.includes('ADMIN')) {
@@ -44,34 +150,10 @@ export const handler = async (event: ResolverEvent) => {
     throw new Error('USER_POOL_ID environment variable is not configured.');
   }
 
-  const { username, email, temporaryPassword, groupName } = event.arguments;
+  const fieldName = event.info?.fieldName;
+  if (fieldName === 'adminDeleteUser') {
+    return adminDeleteUser(event, userPoolId);
+  }
 
-  await client.send(
-    new AdminCreateUserCommand({
-      UserPoolId: userPoolId,
-      Username: username,
-      TemporaryPassword: temporaryPassword,
-      DesiredDeliveryMediums: ['EMAIL'],
-      UserAttributes: [
-        { Name: 'email', Value: email },
-        { Name: 'email_verified', Value: 'true' },
-      ],
-    }),
-  );
-
-  const targetGroup = groupName?.trim() || 'FREELANCER';
-
-  await client.send(
-    new AdminAddUserToGroupCommand({
-      UserPoolId: userPoolId,
-      Username: username,
-      GroupName: targetGroup,
-    }),
-  );
-
-  return {
-    username,
-    status: 'INVITED',
-    message: `User ${username} invited successfully in ${targetGroup}.`,
-  };
+  return inviteUser(event, userPoolId);
 };

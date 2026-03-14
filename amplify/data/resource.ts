@@ -68,6 +68,23 @@ const schema = a.schema({
     .returns(
       a.customType({
         username: a.string(),
+        cognitoUsername: a.string(),
+        status: a.string(),
+        message: a.string(),
+      }),
+    )
+    .authorization((allow) => [allow.groups(['ADMIN'])])
+    .handler(a.handler.function(adminManagementFunction)),
+
+  adminDeleteUser: a
+    .mutation()
+    .arguments({
+      cognitoUsername: a.string(),
+      email: a.string(),
+    })
+    .returns(
+      a.customType({
+        username: a.string(),
         status: a.string(),
         message: a.string(),
       }),

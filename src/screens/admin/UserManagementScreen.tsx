@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  Alert,
   FlatList,
   Pressable,
   ScrollView,
@@ -99,15 +98,47 @@ export function UserManagementScreen({ can }: Props) {
         groupName: 'FREELANCER',
       });
 
-      const createdUser = await client.models.AppUser.create({
-        username: inviteUsername.trim(),
-        email: inviteEmail.trim(),
-        status: 'INVITED',
-        departmentId: can('users', 'assignDepartment') ? selectedDepartmentId || undefined : undefined,
+      const normalizedEmail = inviteEmail.trim().toLowerCase();
+      const cognitoUsername =
+        inviteResult.data?.cognitoUsername ||
+        inviteResult.data?.username ||
+        normalizedEmail;
+
+      const existing = await client.models.AppUser.list({
+        filter: { email: { eq: normalizedEmail } },
       });
 
-      if (can('users', 'assignRole') && selectedRoleId && createdUser.data?.id) {
-        await client.models.UserRole.create({ userId: createdUser.data.id, roleId: selectedRoleId });
+      const existingUser = existing.data?.[0];
+
+      let appUserId = existingUser?.id;
+      if (existingUser) {
+        const updated = await client.models.AppUser.update({
+          id: existingUser.id,
+          username: inviteUsername.trim(),
+          email: normalizedEmail,
+          cognitoUsername,
+          status: 'INVITED',
+          departmentId: can('users', 'assignDepartment') ? selectedDepartmentId || undefined : undefined,
+        });
+        appUserId = updated.data?.id ?? existingUser.id;
+      } else {
+        const createdUser = await client.models.AppUser.create({
+          username: inviteUsername.trim(),
+          email: normalizedEmail,
+          cognitoUsername,
+          status: 'INVITED',
+          departmentId: can('users', 'assignDepartment') ? selectedDepartmentId || undefined : undefined,
+        });
+        appUserId = createdUser.data?.id;
+      }
+
+      if (can('users', 'assignRole') && selectedRoleId && appUserId) {
+        const relation = userRoles.find((row) => row.userId === appUserId);
+        if (relation) {
+          await client.models.UserRole.update({ id: relation.id, roleId: selectedRoleId });
+        } else {
+          await client.models.UserRole.create({ userId: appUserId, roleId: selectedRoleId });
+        }
       }
 
       setMessage(inviteResult.data?.message ?? 'User invited successfully.');
@@ -127,6 +158,7 @@ export function UserManagementScreen({ can }: Props) {
     loadData,
     selectedDepartmentId,
     selectedRoleId,
+    userRoles,
   ]);
 
   const startEdit = useCallback(
@@ -190,26 +222,24 @@ export function UserManagementScreen({ can }: Props) {
         return;
       }
 
-      Alert.alert('Delete User', `Delete ${user.username}?`, [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              const related = userRoles.filter((row) => row.userId === user.id);
-              for (const row of related) {
-                await client.models.UserRole.delete({ id: row.id });
-              }
-              await client.models.AppUser.delete({ id: user.id });
-              setMessage('User deleted.');
-              await loadData();
-            } catch (error: unknown) {
-              setMessage(`Delete failed: ${(error as Error).message}`);
-            }
-          },
-        },
-      ]);
+      try {
+        const cognitoUsername = user.cognitoUsername || user.email;
+        await client.mutations.adminDeleteUser({
+          cognitoUsername,
+          email: user.email,
+        });
+
+        const related = userRoles.filter((row) => row.userId === user.id);
+        for (const row of related) {
+          await client.models.UserRole.delete({ id: row.id });
+        }
+        await client.models.AppUser.delete({ id: user.id });
+
+        setMessage(`User ${user.username} deleted from Cognito and app records.`);
+        await loadData();
+      } catch (error: unknown) {
+        setMessage(`Delete failed: ${(error as Error).message}`);
+      }
     },
     [can, loadData, userRoles],
   );

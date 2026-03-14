@@ -125,7 +125,6 @@ function AdminUserManagement() {
       return;
     }
 
-    setLoading(true);
     setMessage('');
     try {
       const inviteResult = await client.mutations.inviteUser({
@@ -613,9 +612,12 @@ export default function App() {
   }
 
   return (
-    <Authenticator>
+    <Authenticator.Provider>
+          <Authenticator>
       <AppShell />
     </Authenticator>
+    </Authenticator.Provider>
+
   );
 }
 

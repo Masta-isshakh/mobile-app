@@ -44,5 +44,6 @@ yarn-error.*
 # amplify
 node_modules
 .amplify
-amplify_outputs*
+# amplify_outputs.json is intentionally committed — it contains only public
+# client-side config (Cognito pool IDs, AppSync URL). EAS Build needs this file.
 amplifyconfiguration*

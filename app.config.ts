@@ -28,6 +28,7 @@ const config: ExpoConfig = {
   web: {
     favicon: './assets/favicon.png',
   },
+  plugins: ['expo-sharing'],
 };
 
 export default config;

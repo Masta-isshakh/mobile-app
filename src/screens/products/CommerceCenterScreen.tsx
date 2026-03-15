@@ -7,6 +7,7 @@ import { getProductCategoryLabel, getTierBenefits } from '../../constants/commer
 import { client } from '../../lib/amplifyClient';
 import { useAppTheme } from '../../theme/AppThemeContext';
 import { formatQar } from '../../utils/currency';
+import { printDeliveryNote, printWarrantyCard } from './PrintDocumentScreen';
 import type {
   AuthUserContext,
   DeliveryNote,
@@ -84,6 +85,7 @@ export function CommerceCenterScreen({ authUser, isAdmin }: Props) {
   const [signatureDrafts, setSignatureDrafts] = useState<Record<string, string>>({});
   const [busyNoteId, setBusyNoteId] = useState<string | null>(null);
   const [busyWarrantyId, setBusyWarrantyId] = useState<string | null>(null);
+  const [printingId, setPrintingId] = useState<string | null>(null);
 
   const loadData = useCallback(async () => {
     const ownerFilter = { ownerSub: { eq: authUser.sub } };
@@ -188,6 +190,24 @@ export function CommerceCenterScreen({ authUser, isAdmin }: Props) {
     },
     [loadData],
   );
+
+  const handlePrintNote = useCallback(async (note: DeliveryNote) => {
+    setPrintingId(note.id);
+    try {
+      await printDeliveryNote(note);
+    } finally {
+      setPrintingId(null);
+    }
+  }, []);
+
+  const handlePrintWarranty = useCallback(async (card: WarrantyCard) => {
+    setPrintingId(card.id);
+    try {
+      await printWarrantyCard(card);
+    } finally {
+      setPrintingId(null);
+    }
+  }, []);
 
   if (loading) {
     return (
@@ -327,6 +347,17 @@ export function CommerceCenterScreen({ authUser, isAdmin }: Props) {
                   </View>
                   {note.deliveryAddress ? <Text style={styles.smallPrint}>{note.deliveryAddress}</Text> : null}
 
+                  <Pressable
+                    style={[styles.printButton, { borderColor: colors.border, opacity: printingId === note.id ? 0.5 : 1 }]}
+                    disabled={printingId === note.id}
+                    onPress={() => void handlePrintNote(note)}
+                  >
+                    <Ionicons name="print-outline" size={14} color={colors.primary} />
+                    <Text style={[styles.printButtonLabel, { color: colors.primary }]}>
+                      {printingId === note.id ? 'Preparing PDF…' : 'Export PDF'}
+                    </Text>
+                  </Pressable>
+
                   {isAdmin ? (
                     <>
                       <DropdownSelect
@@ -386,6 +417,17 @@ export function CommerceCenterScreen({ authUser, isAdmin }: Props) {
                     <InlineStat label="Ends" value={formatDate(card.warrantyEndDate)} />
                   </View>
                   <Text style={styles.noteText}>{card.coverageSummary}</Text>
+                  <Pressable
+                    style={[styles.printButton, { borderColor: colors.border, opacity: printingId === card.id ? 0.5 : 1 }]}
+                    disabled={printingId === card.id}
+                    onPress={() => void handlePrintWarranty(card)}
+                  >
+                    <Ionicons name="print-outline" size={14} color={colors.primary} />
+                    <Text style={[styles.printButtonLabel, { color: colors.primary }]}>
+                      {printingId === card.id ? 'Preparing PDF…' : 'Export PDF'}
+                    </Text>
+                  </Pressable>
+
                   {isAdmin ? (
                     <DropdownSelect
                       label="Warranty Status"
@@ -714,6 +756,20 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     backgroundColor: '#F8FBFF',
     padding: 12,
+  },
+  printButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    alignSelf: 'flex-start',
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  printButtonLabel: {
+    fontSize: 12,
+    fontWeight: '800',
   },
   emptyStateText: {
     flex: 1,

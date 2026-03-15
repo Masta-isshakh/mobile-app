@@ -1,10 +1,10 @@
 import { useCallback, useMemo, useState } from 'react';
 import { Ionicons } from '@expo/vector-icons';
-import { useStripe } from '@stripe/stripe-react-native';
 import { Alert, Image, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { SuccessPopup } from '../../components/SuccessPopup';
 import { client } from '../../lib/amplifyClient';
+import { useStripeBridge } from '../../lib/useStripeBridge.native';
 import { useAppTheme } from '../../theme/AppThemeContext';
 import { formatQar } from '../../utils/currency';
 import { PayPalCheckoutScreen } from './PayPalCheckoutScreen';
@@ -56,7 +56,7 @@ export function CartScreen({
   const [payPalApprovalUrl, setPayPalApprovalUrl] = useState('');
   const [payPalOrderId, setPayPalOrderId] = useState('');
   const [successPopup, setSuccessPopup] = useState({ visible: false, title: '', description: '' });
-  const { initPaymentSheet, presentPaymentSheet } = useStripe();
+  const { initPaymentSheet, presentPaymentSheet } = useStripeBridge();
 
   const subtotal = useMemo(
     () => items.reduce((sum, item) => sum + (item.product.price ?? 0) * item.quantity, 0),

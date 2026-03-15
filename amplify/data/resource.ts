@@ -141,6 +141,7 @@ const schema = a.schema({
       ownerUsername: a.string().required(),
       customerName: a.string().required(),
       customerPhone: a.string().required(),
+      customerEmail: a.string(),
       companyName: a.string(),
       qidReference: a.string(),
       deliveryAddress: a.string(),
@@ -190,6 +191,7 @@ const schema = a.schema({
       status: a.enum(['DRAFT', 'PACKED', 'OUT_FOR_DELIVERY', 'DELIVERED', 'COLLECTED']),
       recipientName: a.string().required(),
       customerPhone: a.string().required(),
+      customerEmail: a.string(),
       deliveryAddress: a.string(),
       companyName: a.string(),
       qidReference: a.string(),
@@ -219,6 +221,7 @@ const schema = a.schema({
       coverageSummary: a.string().required(),
       customerName: a.string().required(),
       customerPhone: a.string().required(),
+      customerEmail: a.string(),
       companyName: a.string(),
       qidReference: a.string(),
     })

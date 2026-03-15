@@ -43,21 +43,27 @@ export function AppHeader({
           </View>
         </View>
 
-                    {showCart ? (
-          <Pressable style={styles.cartButton} onPress={onPressCart}>
-            <Ionicons name="cart-outline" size={22} color="#1565C0" />
-            {cartCount > 0 && (
-              <View style={styles.cartBadge}>
-                <Text style={styles.cartBadgeText}>{cartCount > 99 ? '99+' : cartCount}</Text>
-              </View>
-            )}
-          </Pressable>
-        ) : null}
+        <View style={styles.headerRight}>
+          <View style={[styles.roleBadge, isDarkMode ? styles.roleBadgeDark : undefined]}>
+            <Ionicons name={roleLabel === 'Admin' ? 'sparkles' : 'briefcase'} size={13} color="#ffffff" />
+            <Text style={styles.roleBadgeText}>{roleLabel}</Text>
+          </View>
+
+          {showCart ? (
+            <Pressable style={styles.cartButton} onPress={onPressCart}>
+              <Ionicons name="cart-outline" size={22} color="#1565C0" />
+              {cartCount > 0 && (
+                <View style={styles.cartBadge}>
+                  <Text style={styles.cartBadgeText}>{cartCount > 99 ? '99+' : cartCount}</Text>
+                </View>
+              )}
+            </Pressable>
+          ) : null}
+        </View>
 
       </View>
 
       <View style={styles.divider} />
-
 
     </View>
   );
@@ -114,6 +120,11 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: 10,
     marginBottom: 10,
+  },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
   },
   brandMark: {
     flexDirection: 'row',
@@ -189,7 +200,7 @@ const styles = StyleSheet.create({
   },
   contentRow: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     justifyContent: 'space-between',
     gap: 10,
   },
@@ -208,6 +219,30 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '500',
     color: 'rgba(255,255,255,0.78)',
+    lineHeight: 18,
+  },
+  signalCard: {
+    minWidth: 78,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255,255,255,0.16)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.18)',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    alignItems: 'flex-start',
+  },
+  signalEyebrow: {
+    color: 'rgba(255,255,255,0.7)',
+    fontSize: 10,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+  },
+  signalValue: {
+    marginTop: 3,
+    color: '#ffffff',
+    fontSize: 18,
+    fontWeight: '900',
   },
   cartButton: {
     width: 46,

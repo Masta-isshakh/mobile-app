@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useState } from 'react';
-import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppHeader } from '../components/AppHeader';
 import { BottomTabNavigation } from '../components/BottomTabNavigation';
@@ -120,10 +121,57 @@ export function AdminLayout({ can, authUser }: Props) {
 
       <View style={styles.content}>
         {currentTab === 'home' && (
-          <View style={[styles.card, { backgroundColor: colors.surface }]}>
-            <Text style={[styles.sectionTitle, { color: colors.text }]}>Welcome Back</Text>
-            <Text style={[styles.paragraph, { color: colors.textMuted }]}>Use Settings to manage users, departments, and role policies.</Text>
-          </View>
+          <ScrollView contentContainerStyle={styles.homeScroll}>
+            <View style={styles.homeHeroCard}>
+              <View style={styles.homeGlowPrimary} />
+              <View style={styles.homeGlowAccent} />
+              <Text style={styles.heroEyebrow}>Operations Command</Text>
+              <Text style={styles.heroTitle}>Professional control for products, orders, people, and permissions.</Text>
+              <Text style={styles.heroText}>Use this admin home as your daily command center to supervise store activity, fulfillment, and access governance from one place.</Text>
+
+              <View style={styles.heroMetricRow}>
+                <View style={styles.heroMetricCard}>
+                  <Text style={styles.heroMetricValue}>6</Text>
+                  <Text style={styles.heroMetricLabel}>Core Workspaces</Text>
+                </View>
+                <View style={styles.heroMetricCard}>
+                  <Text style={styles.heroMetricValue}>Live</Text>
+                  <Text style={styles.heroMetricLabel}>Commerce Tracking</Text>
+                </View>
+                <View style={styles.heroMetricCard}>
+                  <Text style={styles.heroMetricValue}>24/7</Text>
+                  <Text style={styles.heroMetricLabel}>Operational View</Text>
+                </View>
+              </View>
+            </View>
+
+            <Text style={[styles.homeSectionLabel, { color: colors.text }]}>Jump into a workflow</Text>
+            <View style={styles.quickActionGrid}>
+              {[
+                { key: 'products', label: 'Manage Products', icon: 'grid-outline', blurb: 'Create, refine, and publish catalog inventory.' },
+                { key: 'orders', label: 'Run Commerce', icon: 'receipt-outline', blurb: 'Track orders, delivery notes, and warranties.' },
+                { key: 'settings', label: 'Control Access', icon: 'shield-checkmark-outline', blurb: 'Manage users, roles, departments, and policies.' },
+                { key: 'store', label: 'Inspect Stores', icon: 'storefront-outline', blurb: 'Audit all freelancer store shelves in one view.' },
+              ].map((item) => (
+                <Pressable
+                  key={item.key}
+                  onPress={() => setTab(item.key)}
+                  style={[styles.quickActionCard, { backgroundColor: colors.surface }]}
+                >
+                  <View style={styles.quickActionIconWrap}>
+                    <Ionicons name={item.icon as any} size={18} color={colors.primary} />
+                  </View>
+                  <Text style={[styles.quickActionTitle, { color: colors.text }]}>{item.label}</Text>
+                  <Text style={[styles.quickActionText, { color: colors.textMuted }]}>{item.blurb}</Text>
+                </Pressable>
+              ))}
+            </View>
+
+            <View style={[styles.briefingCard, { backgroundColor: colors.surface }]}>
+              <Text style={[styles.sectionTitle, { color: colors.text }]}>Daily briefing</Text>
+              <Text style={[styles.paragraph, { color: colors.textMuted }]}>Review orders first, then check store content, then tighten role policies. This sequence keeps fulfillment clean while reducing permission drift.</Text>
+            </View>
+          </ScrollView>
         )}
 
         {currentTab === 'products' && (
@@ -223,6 +271,11 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
   },
+  homeScroll: {
+    paddingHorizontal: 12,
+    paddingBottom: 132,
+    gap: 14,
+  },
   card: {
     margin: 12,
     backgroundColor: '#ffffffcc',
@@ -239,6 +292,119 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#515e78',
     lineHeight: 20,
+  },
+  homeHeroCard: {
+    marginTop: 2,
+    borderRadius: 24,
+    padding: 20,
+    backgroundColor: '#0d2f63',
+    overflow: 'hidden',
+  },
+  homeGlowPrimary: {
+    position: 'absolute',
+    width: 220,
+    height: 220,
+    borderRadius: 110,
+    backgroundColor: 'rgba(36, 122, 223, 0.38)',
+    top: -68,
+    right: -48,
+  },
+  homeGlowAccent: {
+    position: 'absolute',
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: 'rgba(247, 148, 29, 0.22)',
+    bottom: -28,
+    left: -24,
+  },
+  heroEyebrow: {
+    color: '#f7c37b',
+    fontSize: 12,
+    fontWeight: '800',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+  },
+  heroTitle: {
+    marginTop: 10,
+    color: '#ffffff',
+    fontSize: 28,
+    lineHeight: 34,
+    fontWeight: '900',
+  },
+  heroText: {
+    marginTop: 10,
+    color: 'rgba(255,255,255,0.8)',
+    fontSize: 14,
+    lineHeight: 21,
+  },
+  heroMetricRow: {
+    marginTop: 18,
+    flexDirection: 'row',
+    gap: 10,
+  },
+  heroMetricCard: {
+    flex: 1,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.12)',
+    padding: 12,
+  },
+  heroMetricValue: {
+    color: '#ffffff',
+    fontSize: 18,
+    fontWeight: '900',
+  },
+  heroMetricLabel: {
+    marginTop: 5,
+    color: 'rgba(255,255,255,0.72)',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  homeSectionLabel: {
+    marginTop: 2,
+    fontSize: 18,
+    fontWeight: '900',
+  },
+  quickActionGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+  },
+  quickActionCard: {
+    width: '48%',
+    borderRadius: 20,
+    padding: 16,
+    minHeight: 156,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.08,
+    shadowRadius: 16,
+    elevation: 5,
+  },
+  quickActionIconWrap: {
+    width: 42,
+    height: 42,
+    borderRadius: 14,
+    backgroundColor: '#e0efff',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  quickActionTitle: {
+    marginTop: 14,
+    fontSize: 16,
+    fontWeight: '800',
+  },
+  quickActionText: {
+    marginTop: 8,
+    fontSize: 13,
+    lineHeight: 19,
+  },
+  briefingCard: {
+    borderRadius: 20,
+    padding: 18,
+    marginBottom: 8,
   },
   settingsTabBar: {
     marginHorizontal: 12,

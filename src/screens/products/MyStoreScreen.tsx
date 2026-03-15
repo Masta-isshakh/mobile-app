@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Ionicons } from '@expo/vector-icons';
-import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { ActivityIndicator, Alert, Image, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { client } from '../../lib/amplifyClient';
 import { useAppTheme } from '../../theme/AppThemeContext';
 import { formatQar } from '../../utils/currency';
@@ -18,6 +18,7 @@ export function MyStoreScreen({ authUser, isAdmin, onSelectProduct }: Props) {
   const [storeItems, setStoreItems] = useState<StoreProduct[]>([]);
   const [message, setMessage] = useState('');
   const [isLoading, setIsLoading] = useState(true);
+  const [deletingStoreItemId, setDeletingStoreItemId] = useState<string | null>(null);
   const { width: windowWidth } = useWindowDimensions();
   const cardGap = 10;
   const horizontalPadding = 24;
@@ -63,6 +64,27 @@ export function MyStoreScreen({ authUser, isAdmin, onSelectProduct }: Props) {
     return storeItems.filter((item) => item.ownerSub === authUser.sub);
   }, [authUser.sub, storeItems]);
 
+  const handleDeleteStoreItem = useCallback((item: StoreProduct, productName: string) => {
+    Alert.alert(
+      'Remove from store',
+      `Delete ${productName} from ${item.ownerUsername}'s store?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => {
+            setDeletingStoreItemId(item.id);
+            void client.models.StoreProduct.delete({ id: item.id })
+              .then(() => loadData())
+              .catch((error: unknown) => setMessage((error as Error).message))
+              .finally(() => setDeletingStoreItemId(null));
+          },
+        },
+      ],
+    );
+  }, [loadData]);
+
   return (
     <View style={[styles.wrap, { backgroundColor: colors.background }]}>
       <Text style={[styles.title, { color: colors.text }]}>{isAdmin ? 'All User Stores' : 'My Store'}</Text>
@@ -104,24 +126,38 @@ export function MyStoreScreen({ authUser, isAdmin, onSelectProduct }: Props) {
                     }
 
                     return (
-                      <Pressable
-                        key={item.id}
-                        style={styles.productRow}
-                        onPress={() => onSelectProduct?.(product)}
-                      >
-                        {product.imageDataUrl ? (
-                          <Image source={{ uri: product.imageDataUrl }} style={styles.thumb} />
-                        ) : (
-                          <View style={styles.thumbFallback}>
-                            <Ionicons name="image-outline" size={16} color="#8b98ad" />
-                          </View>
-                        )}
+                      <View key={item.id} style={styles.productRow}>
+                        <Pressable style={styles.productRowMain} onPress={() => onSelectProduct?.(product)}>
+                          {product.imageDataUrl ? (
+                            <Image source={{ uri: product.imageDataUrl }} style={styles.thumb} />
+                          ) : (
+                            <View style={styles.thumbFallback}>
+                              <Ionicons name="image-outline" size={16} color="#8b98ad" />
+                            </View>
+                          )}
 
-                        <View style={styles.productMeta}>
-                          <Text style={styles.productName}>{product.name}</Text>
-                          <Text style={styles.productPrice}>{formatQar(product.price ?? 0)}</Text>
-                        </View>
-                      </Pressable>
+                          <View style={styles.productMeta}>
+                            <Text style={styles.productName}>{product.name}</Text>
+                            <Text style={styles.productPrice}>{formatQar(product.price ?? 0)}</Text>
+                          </View>
+                        </Pressable>
+
+                        {isAdmin ? (
+                          <Pressable
+                            style={[
+                              styles.deleteButton,
+                              deletingStoreItemId === item.id ? styles.deleteButtonDisabled : undefined,
+                            ]}
+                            disabled={deletingStoreItemId === item.id}
+                            onPress={() => handleDeleteStoreItem(item, product.name)}
+                          >
+                            <Ionicons name="trash-outline" size={16} color="#dc2626" />
+                            <Text style={styles.deleteButtonText}>
+                              {deletingStoreItemId === item.id ? 'Deleting...' : 'Delete'}
+                            </Text>
+                          </Pressable>
+                        ) : null}
+                      </View>
                     );
                   })}
                 </View>
@@ -242,6 +278,13 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: '#e2e8f0',
     flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  productRowMain: {
+    flex: 1,
+    flexDirection: 'row',
     gap: 10,
     alignItems: 'center',
   },
@@ -261,6 +304,23 @@ const styles = StyleSheet.create({
   },
   productMeta: {
     flex: 1,
+  },
+  deleteButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    borderRadius: 12,
+    backgroundColor: '#fee2e2',
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+  },
+  deleteButtonDisabled: {
+    opacity: 0.55,
+  },
+  deleteButtonText: {
+    color: '#b91c1c',
+    fontSize: 12,
+    fontWeight: '800',
   },
   productCard: {
     borderRadius: 18,

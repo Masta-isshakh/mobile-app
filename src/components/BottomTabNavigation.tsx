@@ -7,7 +7,6 @@ import type { BottomTabItem } from '../types';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const ICON_SIZE = SCREEN_WIDTH < 380 ? 20 : 22;
-const TAB_MAX_WIDTH = SCREEN_WIDTH > 760 ? 720 : SCREEN_WIDTH > 520 ? 560 : 440;
 
 type IoniconName = ComponentProps<typeof Ionicons>['name'];
 
@@ -26,7 +25,7 @@ export function BottomTabNavigation({ tabs, current, onChange }: Props) {
 
   return (
     <View style={[styles.outerWrap, { paddingBottom: bottomPadding }]}>
-      <View style={[styles.tabWrap, isDarkMode ? styles.tabWrapDark : undefined, { maxWidth: TAB_MAX_WIDTH }]}> 
+      <View style={[styles.tabWrap, isDarkMode ? styles.tabWrapDark : undefined]}>
         {tabs.map((tab) => {
           const active = current === tab.key;
           const baseIcon = tab.icon ?? 'ellipse';
@@ -35,7 +34,7 @@ export function BottomTabNavigation({ tabs, current, onChange }: Props) {
             <Pressable
               key={tab.key}
               onPress={() => onChange(tab.key)}
-              style={styles.tabButton}
+              style={[styles.tabButton, active ? styles.tabButtonActive : undefined]}
             >
               <View
                 style={[
@@ -45,6 +44,7 @@ export function BottomTabNavigation({ tabs, current, onChange }: Props) {
                   active && isDarkMode ? styles.iconBubbleActiveDark : undefined,
                 ]}
               >
+                {active ? <View style={styles.activeHalo} /> : null}
                 <Ionicons
                   name={iconName}
                   size={ICON_SIZE}
@@ -58,6 +58,7 @@ export function BottomTabNavigation({ tabs, current, onChange }: Props) {
                   active ? styles.tabTitleActive : undefined,
                   active && isDarkMode ? styles.tabTitleActiveDark : undefined,
                 ]}
+                numberOfLines={1}
               >
                 {tab.label}
               </Text>
@@ -72,32 +73,37 @@ export function BottomTabNavigation({ tabs, current, onChange }: Props) {
 const styles = StyleSheet.create({
   outerWrap: {
     width: '100%',
-    paddingHorizontal: 18,
-    paddingTop: 10,
+    paddingHorizontal: 0,
+    paddingTop: 8,
     backgroundColor: 'transparent',
-    alignItems: 'center',
+    alignItems: 'stretch',
   },
   tabWrap: {
     width: '100%',
     flexDirection: 'row',
     backgroundColor: '#ffffff',
-    borderRadius: 22,
-    padding: 8,
+    borderRadius: 26,
+    paddingHorizontal: 8,
+    paddingTop: 8,
+    paddingBottom: 10,
     shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.12,
-    shadowRadius: 16,
-    elevation: 10,
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.14,
+    shadowRadius: 18,
+    elevation: 12,
   },
   tabWrapDark: {
-    backgroundColor: '#1e2138',
+    backgroundColor: '#161b2f',
   },
   tabButton: {
     flex: 1,
-    borderRadius: 16,
+    borderRadius: 18,
     paddingVertical: 8,
-    paddingHorizontal: 8,
+    paddingHorizontal: 4,
     alignItems: 'center',
+  },
+  tabButtonActive: {
+    backgroundColor: 'rgba(21, 101, 192, 0.08)',
   },
   iconBubble: {
     width: 36,
@@ -107,6 +113,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: '#f3f4f6',
     marginBottom: 4,
+    overflow: 'hidden',
+  },
+  activeHalo: {
+    position: 'absolute',
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    backgroundColor: 'rgba(255,255,255,0.26)',
   },
   iconBubbleDark: {
     backgroundColor: '#303657',
@@ -119,8 +133,9 @@ const styles = StyleSheet.create({
   },
   tabTitle: {
     fontSize: 11,
-    fontWeight: '600',
+    fontWeight: '700',
     color: '#6b7280',
+    textAlign: 'center',
   },
   tabTitleDark: {
     color: '#d0d5ea',

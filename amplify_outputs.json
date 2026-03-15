@@ -1,9 +1,9 @@
 {
   "auth": {
-    "user_pool_id": "ap-southeast-1_xdyezMUd4",
+    "user_pool_id": "ap-southeast-1_VShBT437O",
     "aws_region": "ap-southeast-1",
-    "user_pool_client_id": "5o8iqadmn6l63gdbchbth137d",
-    "identity_pool_id": "ap-southeast-1:08ba0f63-6453-4785-a5bb-be2bf001c6a3",
+    "user_pool_client_id": "2qv91s632s1q523m5io0t2s2e7",
+    "identity_pool_id": "ap-southeast-1:eb357a40-3fc9-4a4c-9a4c-d59e237e3665",
     "mfa_methods": [],
     "standard_required_attributes": [
       "email"
@@ -37,7 +37,7 @@
     "unauthenticated_identities_enabled": true
   },
   "data": {
-    "url": "https://5thvxwfv4bd33jbfpgqrreg4xe.appsync-api.ap-southeast-1.amazonaws.com/graphql",
+    "url": "https://3fte5zc7pbbvljjm6gkqkpcxsy.appsync-api.ap-southeast-1.amazonaws.com/graphql",
     "aws_region": "ap-southeast-1",
     "default_authorization_type": "AMAZON_COGNITO_USER_POOLS",
     "authorization_types": [
@@ -1245,6 +1245,13 @@
               "isRequired": true,
               "attributes": []
             },
+            "customerEmail": {
+              "name": "customerEmail",
+              "isArray": false,
+              "type": "String",
+              "isRequired": false,
+              "attributes": []
+            },
             "companyName": {
               "name": "companyName",
               "isArray": false,
@@ -1629,6 +1636,13 @@
               "isRequired": true,
               "attributes": []
             },
+            "customerEmail": {
+              "name": "customerEmail",
+              "isArray": false,
+              "type": "String",
+              "isRequired": false,
+              "attributes": []
+            },
             "deliveryAddress": {
               "name": "deliveryAddress",
               "isArray": false,
@@ -1848,6 +1862,13 @@
               "isArray": false,
               "type": "String",
               "isRequired": true,
+              "attributes": []
+            },
+            "customerEmail": {
+              "name": "customerEmail",
+              "isArray": false,
+              "type": "String",
+              "isRequired": false,
               "attributes": []
             },
             "companyName": {

@@ -128,6 +128,7 @@ export type SalesOrder = {
   ownerUsername: string;
   customerName: string;
   customerPhone: string;
+  customerEmail?: string | null;
   companyName?: string | null;
   qidReference?: string | null;
   deliveryAddress?: string | null;
@@ -171,6 +172,7 @@ export type DeliveryNote = {
   status: DeliveryStatus;
   recipientName: string;
   customerPhone: string;
+  customerEmail?: string | null;
   deliveryAddress?: string | null;
   companyName?: string | null;
   qidReference?: string | null;
@@ -197,6 +199,7 @@ export type WarrantyCard = {
   coverageSummary: string;
   customerName: string;
   customerPhone: string;
+  customerEmail?: string | null;
   companyName?: string | null;
   qidReference?: string | null;
   createdAt?: string | null;

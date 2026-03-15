@@ -1,5 +1,5 @@
 {
-  "name": "my_amplify_app",
+  "name": "jamago",
   "version": "1.0.0",
   "main": "index.ts",
   "scripts": {
@@ -21,6 +21,7 @@
     "expo": "~55.0.6",
     "expo-image-manipulator": "^55.0.10",
     "expo-image-picker": "^55.0.12",
+    "expo-mail-composer": "~55.0.8",
     "expo-print": "~55.0.8",
     "expo-sharing": "~55.0.11",
     "expo-status-bar": "~55.0.4",

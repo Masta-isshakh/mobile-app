@@ -7,7 +7,15 @@ import { getProductCategoryLabel, getTierBenefits } from '../../constants/commer
 import { client } from '../../lib/amplifyClient';
 import { useAppTheme } from '../../theme/AppThemeContext';
 import { formatQar } from '../../utils/currency';
-import { printDeliveryNote, printWarrantyCard } from './PrintDocumentScreen';
+import {
+  printDeliveryNote,
+  printInvoice,
+  printWarrantyCard,
+  sendInvoiceByEmail,
+  sendInvoiceByWhatsApp,
+  sendWarrantyByEmail,
+  sendWarrantyByWhatsApp,
+} from './PrintDocumentScreen';
 import type {
   AuthUserContext,
   DeliveryNote,
@@ -16,6 +24,7 @@ import type {
   LoyaltyLedger,
   OrderFulfillmentStatus,
   SalesOrder,
+  SalesOrderItem,
   WarrantyCard,
   WarrantyStatus,
 } from '../../types';
@@ -78,6 +87,7 @@ export function CommerceCenterScreen({ authUser, isAdmin }: Props) {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [orders, setOrders] = useState<SalesOrder[]>([]);
+  const [orderItems, setOrderItems] = useState<SalesOrderItem[]>([]);
   const [deliveryNotes, setDeliveryNotes] = useState<DeliveryNote[]>([]);
   const [warrantyCards, setWarrantyCards] = useState<WarrantyCard[]>([]);
   const [loyaltyAccounts, setLoyaltyAccounts] = useState<LoyaltyAccount[]>([]);
@@ -85,12 +95,13 @@ export function CommerceCenterScreen({ authUser, isAdmin }: Props) {
   const [signatureDrafts, setSignatureDrafts] = useState<Record<string, string>>({});
   const [busyNoteId, setBusyNoteId] = useState<string | null>(null);
   const [busyWarrantyId, setBusyWarrantyId] = useState<string | null>(null);
-  const [printingId, setPrintingId] = useState<string | null>(null);
+  const [documentBusyKey, setDocumentBusyKey] = useState<string | null>(null);
 
   const loadData = useCallback(async () => {
     const ownerFilter = { ownerSub: { eq: authUser.sub } };
-    const [ordersResult, notesResult, warrantiesResult, loyaltyResult, ledgerResult] = await Promise.all([
+    const [ordersResult, orderItemsResult, notesResult, warrantiesResult, loyaltyResult, ledgerResult] = await Promise.all([
       client.models.SalesOrder.list(isAdmin ? undefined : { filter: ownerFilter }),
+      client.models.SalesOrderItem.list(isAdmin ? undefined : { filter: ownerFilter }),
       client.models.DeliveryNote.list(isAdmin ? undefined : { filter: ownerFilter }),
       client.models.WarrantyCard.list(isAdmin ? undefined : { filter: ownerFilter }),
       client.models.LoyaltyAccount.list(isAdmin ? undefined : { filter: ownerFilter }),
@@ -98,6 +109,7 @@ export function CommerceCenterScreen({ authUser, isAdmin }: Props) {
     ]);
 
     setOrders(sortByCreatedAt((ordersResult.data ?? []) as SalesOrder[]));
+    setOrderItems(sortByCreatedAt((orderItemsResult.data ?? []) as SalesOrderItem[]));
     setDeliveryNotes(sortByCreatedAt((notesResult.data ?? []) as DeliveryNote[]));
     setWarrantyCards(sortByCreatedAt((warrantiesResult.data ?? []) as WarrantyCard[]));
     setLoyaltyAccounts(sortByCreatedAt((loyaltyResult.data ?? []) as LoyaltyAccount[]));
@@ -138,6 +150,16 @@ export function CommerceCenterScreen({ authUser, isAdmin }: Props) {
       totalWarranties: warrantyCards.length,
     };
   }, [loyaltyAccounts, orders, warrantyCards.length]);
+
+  const orderItemsByOrderId = useMemo(() => {
+    const map = new Map<string, SalesOrderItem[]>();
+    for (const item of orderItems) {
+      const bucket = map.get(item.orderId) ?? [];
+      bucket.push(item);
+      map.set(item.orderId, bucket);
+    }
+    return map;
+  }, [orderItems]);
 
   const handleDeliveryStatusChange = useCallback(
     async (note: DeliveryNote, nextStatusValue: string) => {
@@ -192,20 +214,74 @@ export function CommerceCenterScreen({ authUser, isAdmin }: Props) {
   );
 
   const handlePrintNote = useCallback(async (note: DeliveryNote) => {
-    setPrintingId(note.id);
+    setDocumentBusyKey(`delivery-share-${note.id}`);
     try {
       await printDeliveryNote(note);
     } finally {
-      setPrintingId(null);
+      setDocumentBusyKey(null);
     }
   }, []);
 
+  const handlePrintInvoice = useCallback(async (order: SalesOrder) => {
+    setDocumentBusyKey(`invoice-share-${order.id}`);
+    try {
+      await printInvoice({
+        order,
+        items: orderItemsByOrderId.get(order.id) ?? [],
+      });
+    } finally {
+      setDocumentBusyKey(null);
+    }
+  }, [orderItemsByOrderId]);
+
+  const handleInvoiceEmail = useCallback(async (order: SalesOrder) => {
+    setDocumentBusyKey(`invoice-email-${order.id}`);
+    try {
+      await sendInvoiceByEmail({
+        order,
+        items: orderItemsByOrderId.get(order.id) ?? [],
+      });
+    } finally {
+      setDocumentBusyKey(null);
+    }
+  }, [orderItemsByOrderId]);
+
+  const handleInvoiceWhatsApp = useCallback(async (order: SalesOrder) => {
+    setDocumentBusyKey(`invoice-whatsapp-${order.id}`);
+    try {
+      await sendInvoiceByWhatsApp({
+        order,
+        items: orderItemsByOrderId.get(order.id) ?? [],
+      });
+    } finally {
+      setDocumentBusyKey(null);
+    }
+  }, [orderItemsByOrderId]);
+
   const handlePrintWarranty = useCallback(async (card: WarrantyCard) => {
-    setPrintingId(card.id);
+    setDocumentBusyKey(`warranty-share-${card.id}`);
     try {
       await printWarrantyCard(card);
     } finally {
-      setPrintingId(null);
+      setDocumentBusyKey(null);
+    }
+  }, []);
+
+  const handleWarrantyEmail = useCallback(async (card: WarrantyCard) => {
+    setDocumentBusyKey(`warranty-email-${card.id}`);
+    try {
+      await sendWarrantyByEmail(card);
+    } finally {
+      setDocumentBusyKey(null);
+    }
+  }, []);
+
+  const handleWarrantyWhatsApp = useCallback(async (card: WarrantyCard) => {
+    setDocumentBusyKey(`warranty-whatsapp-${card.id}`);
+    try {
+      await sendWarrantyByWhatsApp(card);
+    } finally {
+      setDocumentBusyKey(null);
     }
   }, []);
 
@@ -297,27 +373,62 @@ export function CommerceCenterScreen({ authUser, isAdmin }: Props) {
           {orders.length === 0 ? (
             <EmptyState text="No orders are available yet." />
           ) : (
-            orders.map((order) => (
-              <View key={order.id} style={styles.orderCard}>
-                <View style={styles.orderHeader}>
-                  <View>
-                    <Text style={styles.recordTitle}>{order.orderNumber}</Text>
-                    <Text style={styles.recordMeta}>{order.customerName} · {order.ownerUsername}</Text>
+            orders.map((order) => {
+              const invoiceItems = orderItemsByOrderId.get(order.id) ?? [];
+              const invoiceShareBusy = documentBusyKey === `invoice-share-${order.id}`;
+              const invoiceEmailBusy = documentBusyKey === `invoice-email-${order.id}`;
+              const invoiceWhatsAppBusy = documentBusyKey === `invoice-whatsapp-${order.id}`;
+
+              return (
+                <View key={order.id} style={styles.orderCard}>
+                  <View style={styles.orderHeader}>
+                    <View>
+                      <Text style={styles.recordTitle}>{order.orderNumber}</Text>
+                      <Text style={styles.recordMeta}>{order.customerName} · {order.ownerUsername}</Text>
+                    </View>
+                    <View style={styles.recordAside}>
+                      <Text style={styles.recordValue}>{formatQar(order.totalQar)}</Text>
+                      <StatusBadge label={order.fulfillmentStatus.replace(/_/g, ' ')} tone="blue" />
+                    </View>
                   </View>
-                  <View style={styles.recordAside}>
-                    <Text style={styles.recordValue}>{formatQar(order.totalQar)}</Text>
-                    <StatusBadge label={order.fulfillmentStatus.replace(/_/g, ' ')} tone="blue" />
+                  <View style={styles.inlineStats}>
+                    <InlineStat label="Payment" value={order.paymentMethod} />
+                    <InlineStat label="Delivery" value={order.deliveryMode.replace('_', ' ')} />
+                    <InlineStat label="Earned" value={`${order.loyaltyPointsEarned ?? 0} pts`} />
+                    <InlineStat label="Redeemed" value={`${order.loyaltyPointsRedeemed ?? 0} pts`} />
+                  </View>
+                  <Text style={styles.smallPrint}>{order.customerEmail || 'No customer email on file for invoice delivery.'}</Text>
+                  <Text style={styles.smallPrint}>Created {formatDate(order.createdAt)} · {invoiceItems.length} line item{invoiceItems.length === 1 ? '' : 's'}</Text>
+
+                  <View style={styles.documentActionRow}>
+                    <DocumentActionButton
+                      label={invoiceShareBusy ? 'Preparing…' : 'Invoice PDF'}
+                      icon="document-text-outline"
+                      color={colors.primary}
+                      borderColor={colors.border}
+                      disabled={invoiceShareBusy || documentBusyKey !== null && !invoiceShareBusy}
+                      onPress={() => void handlePrintInvoice(order)}
+                    />
+                    <DocumentActionButton
+                      label={invoiceEmailBusy ? 'Sending…' : 'Send by Email'}
+                      icon="mail-outline"
+                      color="#0f766e"
+                      borderColor="#a7f3d0"
+                      disabled={invoiceEmailBusy || documentBusyKey !== null && !invoiceEmailBusy}
+                      onPress={() => void handleInvoiceEmail(order)}
+                    />
+                    <DocumentActionButton
+                      label={invoiceWhatsAppBusy ? 'Opening…' : 'Send by WhatsApp'}
+                      icon="logo-whatsapp"
+                      color="#15803d"
+                      borderColor="#bbf7d0"
+                      disabled={invoiceWhatsAppBusy || documentBusyKey !== null && !invoiceWhatsAppBusy}
+                      onPress={() => void handleInvoiceWhatsApp(order)}
+                    />
                   </View>
                 </View>
-                <View style={styles.inlineStats}>
-                  <InlineStat label="Payment" value={order.paymentMethod} />
-                  <InlineStat label="Delivery" value={order.deliveryMode.replace('_', ' ')} />
-                  <InlineStat label="Earned" value={`${order.loyaltyPointsEarned ?? 0} pts`} />
-                  <InlineStat label="Redeemed" value={`${order.loyaltyPointsRedeemed ?? 0} pts`} />
-                </View>
-                <Text style={styles.smallPrint}>Created {formatDate(order.createdAt)}</Text>
-              </View>
-            ))
+              );
+            })
           )}
         </View>
 
@@ -330,6 +441,7 @@ export function CommerceCenterScreen({ authUser, isAdmin }: Props) {
             deliveryNotes.map((note) => {
               const noteBusy = busyNoteId === note.id;
               const draftSignature = signatureDrafts[note.id] ?? note.signatureName ?? '';
+              const deliveryShareBusy = documentBusyKey === `delivery-share-${note.id}`;
               return (
                 <View key={note.id} style={styles.noteCard}>
                   <View style={styles.orderHeader}>
@@ -343,18 +455,19 @@ export function CommerceCenterScreen({ authUser, isAdmin }: Props) {
                   <View style={styles.inlineStats}>
                     <InlineStat label="Mode" value={note.deliveryMode.replace('_', ' ')} />
                     <InlineStat label="Phone" value={note.customerPhone} />
+                    <InlineStat label="Email" value={note.customerEmail || 'Not captured'} />
                     <InlineStat label="Signed" value={note.signatureName ?? 'Pending'} />
                   </View>
                   {note.deliveryAddress ? <Text style={styles.smallPrint}>{note.deliveryAddress}</Text> : null}
 
                   <Pressable
-                    style={[styles.printButton, { borderColor: colors.border, opacity: printingId === note.id ? 0.5 : 1 }]}
-                    disabled={printingId === note.id}
+                    style={[styles.printButton, { borderColor: colors.border, opacity: deliveryShareBusy ? 0.5 : 1 }]}
+                    disabled={deliveryShareBusy || (documentBusyKey !== null && !deliveryShareBusy)}
                     onPress={() => void handlePrintNote(note)}
                   >
                     <Ionicons name="print-outline" size={14} color={colors.primary} />
                     <Text style={[styles.printButtonLabel, { color: colors.primary }]}>
-                      {printingId === note.id ? 'Preparing PDF…' : 'Export PDF'}
+                      {deliveryShareBusy ? 'Preparing PDF…' : 'Share PDF'}
                     </Text>
                   </Pressable>
 
@@ -401,6 +514,9 @@ export function CommerceCenterScreen({ authUser, isAdmin }: Props) {
           ) : (
             warrantyCards.map((card) => {
               const warrantyBusy = busyWarrantyId === card.id;
+              const warrantyShareBusy = documentBusyKey === `warranty-share-${card.id}`;
+              const warrantyEmailBusy = documentBusyKey === `warranty-email-${card.id}`;
+              const warrantyWhatsAppBusy = documentBusyKey === `warranty-whatsapp-${card.id}`;
               return (
                 <View key={card.id} style={styles.warrantyCard}>
                   <View style={styles.orderHeader}>
@@ -416,17 +532,34 @@ export function CommerceCenterScreen({ authUser, isAdmin }: Props) {
                     <InlineStat label="Starts" value={formatDate(card.warrantyStartDate)} />
                     <InlineStat label="Ends" value={formatDate(card.warrantyEndDate)} />
                   </View>
+                  <Text style={styles.smallPrint}>{card.customerEmail || 'No customer email captured for this certificate.'}</Text>
                   <Text style={styles.noteText}>{card.coverageSummary}</Text>
-                  <Pressable
-                    style={[styles.printButton, { borderColor: colors.border, opacity: printingId === card.id ? 0.5 : 1 }]}
-                    disabled={printingId === card.id}
-                    onPress={() => void handlePrintWarranty(card)}
-                  >
-                    <Ionicons name="print-outline" size={14} color={colors.primary} />
-                    <Text style={[styles.printButtonLabel, { color: colors.primary }]}>
-                      {printingId === card.id ? 'Preparing PDF…' : 'Export PDF'}
-                    </Text>
-                  </Pressable>
+                  <View style={styles.documentActionRow}>
+                    <DocumentActionButton
+                      label={warrantyShareBusy ? 'Preparing…' : 'Warranty PDF'}
+                      icon="shield-checkmark-outline"
+                      color={colors.primary}
+                      borderColor={colors.border}
+                      disabled={warrantyShareBusy || (documentBusyKey !== null && !warrantyShareBusy)}
+                      onPress={() => void handlePrintWarranty(card)}
+                    />
+                    <DocumentActionButton
+                      label={warrantyEmailBusy ? 'Sending…' : 'Send by Email'}
+                      icon="mail-outline"
+                      color="#0f766e"
+                      borderColor="#a7f3d0"
+                      disabled={warrantyEmailBusy || (documentBusyKey !== null && !warrantyEmailBusy)}
+                      onPress={() => void handleWarrantyEmail(card)}
+                    />
+                    <DocumentActionButton
+                      label={warrantyWhatsAppBusy ? 'Opening…' : 'Send by WhatsApp'}
+                      icon="logo-whatsapp"
+                      color="#15803d"
+                      borderColor="#bbf7d0"
+                      disabled={warrantyWhatsAppBusy || (documentBusyKey !== null && !warrantyWhatsAppBusy)}
+                      onPress={() => void handleWarrantyWhatsApp(card)}
+                    />
+                  </View>
 
                   {isAdmin ? (
                     <DropdownSelect
@@ -479,6 +612,33 @@ function MetricCard({ label, value }: { label: string; value: string }) {
       <Text style={styles.metricValue}>{value}</Text>
       <Text style={styles.metricLabel}>{label}</Text>
     </View>
+  );
+}
+
+function DocumentActionButton({
+  label,
+  icon,
+  color,
+  borderColor,
+  disabled,
+  onPress,
+}: {
+  label: string;
+  icon: React.ComponentProps<typeof Ionicons>['name'];
+  color: string;
+  borderColor: string;
+  disabled: boolean;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      style={[styles.documentActionButton, { borderColor, opacity: disabled ? 0.55 : 1 }]}
+      disabled={disabled}
+      onPress={onPress}
+    >
+      <Ionicons name={icon} size={14} color={color} />
+      <Text style={[styles.documentActionText, { color }]}>{label}</Text>
+    </Pressable>
   );
 }
 
@@ -766,6 +926,24 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     paddingHorizontal: 12,
     paddingVertical: 8,
+  },
+  documentActionRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  documentActionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  documentActionText: {
+    fontSize: 12,
+    fontWeight: '800',
   },
   printButtonLabel: {
     fontSize: 12,

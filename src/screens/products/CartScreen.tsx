@@ -75,6 +75,7 @@ export function CartScreen({
   const [withDelivery, setWithDelivery] = useState(false);
   const [customerName, setCustomerName] = useState(authUser.username);
   const [customerPhone, setCustomerPhone] = useState('');
+  const [customerEmail, setCustomerEmail] = useState(authUser.email ?? '');
   const [deliveryAddress, setDeliveryAddress] = useState('');
   const [companyName, setCompanyName] = useState('');
   const [qidReference, setQidReference] = useState('');
@@ -137,10 +138,16 @@ export function CartScreen({
     if (!customerPhone.trim()) {
       throw new Error('Phone number is required.');
     }
+    if (!customerEmail.trim()) {
+      throw new Error('Email address is required so receipts and warranty documents can be sent.');
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(customerEmail.trim())) {
+      throw new Error('Enter a valid customer email address.');
+    }
     if (withDelivery && !deliveryAddress.trim()) {
       throw new Error('Delivery address is required when delivery is selected.');
     }
-  }, [customerName, customerPhone, deliveryAddress, withDelivery]);
+  }, [customerEmail, customerName, customerPhone, deliveryAddress, withDelivery]);
 
   const finalizeCommerceRecords = useCallback(
     async (paymentMethod: PaymentMethodValue) => {
@@ -154,6 +161,7 @@ export function CartScreen({
         ownerUsername: authUser.username,
         customerName: customerName.trim(),
         customerPhone: customerPhone.trim(),
+        customerEmail: customerEmail.trim().toLowerCase(),
         companyName: companyName.trim() || undefined,
         qidReference: qidReference.trim() || undefined,
         deliveryAddress: withDelivery ? deliveryAddress.trim() : undefined,
@@ -214,6 +222,7 @@ export function CartScreen({
           coverageSummary: getWarrantyCoverageSummary(category),
           customerName: customerName.trim(),
           customerPhone: customerPhone.trim(),
+          customerEmail: customerEmail.trim().toLowerCase(),
           companyName: companyName.trim() || undefined,
           qidReference: qidReference.trim() || undefined,
         });
@@ -229,6 +238,7 @@ export function CartScreen({
         status: 'DRAFT',
         recipientName: customerName.trim(),
         customerPhone: customerPhone.trim(),
+        customerEmail: customerEmail.trim().toLowerCase(),
         deliveryAddress: withDelivery ? deliveryAddress.trim() : undefined,
         companyName: companyName.trim() || undefined,
         qidReference: qidReference.trim() || undefined,
@@ -299,6 +309,7 @@ export function CartScreen({
       authUser.sub,
       authUser.username,
       companyName,
+      customerEmail,
       customerName,
       customerPhone,
       deliveryAddress,
@@ -320,11 +331,11 @@ export function CartScreen({
     validateCheckoutDetails();
 
     const amountCents = Math.round(total * 100);
-    const customerEmail = authUser.email && authUser.email.includes('@') ? authUser.email : undefined;
+    const stripeCustomerEmail = customerEmail.trim().toLowerCase();
     const response = (await client.mutations.createCheckoutSession({
       amountCents,
       currency: 'qar',
-      customerEmail,
+      customerEmail: stripeCustomerEmail,
       orderSummary,
     })) as { data?: StripeCheckoutSessionPayload; errors?: Array<{ message?: string }> };
 
@@ -343,7 +354,7 @@ export function CartScreen({
       customerEphemeralKeySecret: payload.ephemeralKeySecret,
       paymentIntentClientSecret: payload.clientSecret,
       defaultBillingDetails: {
-        email: customerEmail,
+        email: stripeCustomerEmail,
         name: customerName.trim(),
       },
       allowsDelayedPaymentMethods: true,
@@ -369,7 +380,7 @@ export function CartScreen({
       description: `Order ${orderNumber} confirmed. ${withDelivery ? 'Delivery has been included.' : 'Pickup was selected.'} You earned ${earnedPoints} loyalty points${redeemPoints > 0 ? ` and redeemed ${redeemPoints}` : ''}.`,
     });
   }, [
-    authUser.email,
+    customerEmail,
     customerName,
     earnedPoints,
     finalizeCommerceRecords,
@@ -493,6 +504,7 @@ export function CartScreen({
 
             <View style={[styles.formCard, { backgroundColor: colors.surface }]}>
               <Text style={styles.formTitle}>Customer details</Text>
+              <Text style={styles.helperText}>We will use the mobile number for WhatsApp updates and the email for receipts, invoices, and warranty delivery.</Text>
               <TextInput
                 value={customerName}
                 onChangeText={setCustomerName}
@@ -506,6 +518,16 @@ export function CartScreen({
                 placeholder="Phone number"
                 placeholderTextColor={colors.textMuted}
                 keyboardType="phone-pad"
+                style={[styles.input, { backgroundColor: colors.surfaceMuted, borderColor: colors.border, color: colors.text }]}
+              />
+              <TextInput
+                value={customerEmail}
+                onChangeText={setCustomerEmail}
+                placeholder="Email address"
+                placeholderTextColor={colors.textMuted}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                autoCorrect={false}
                 style={[styles.input, { backgroundColor: colors.surfaceMuted, borderColor: colors.border, color: colors.text }]}
               />
               <TextInput
@@ -642,7 +664,7 @@ export function CartScreen({
       </View>
 
       <Text style={[styles.checkoutHint, { backgroundColor: colors.surface }]}>
-        The order will automatically generate loyalty entries, a delivery note, and warranty cards after successful payment.
+        The order will automatically generate loyalty entries, a delivery note, warranty cards, and share-ready documents for email or WhatsApp after successful payment.
       </Text>
 
       <Modal visible={!!payPalApprovalUrl} animationType="slide" onRequestClose={closePayPalModal}>

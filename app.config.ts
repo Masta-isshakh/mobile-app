@@ -42,7 +42,7 @@ const config: ExpoConfig = {
   web: {
     favicon: './assets/favicon.png',
   },
-  plugins: ['expo-sharing'],
+  plugins: ['expo-sharing', 'expo-mail-composer'],
 };
 
 export default config;

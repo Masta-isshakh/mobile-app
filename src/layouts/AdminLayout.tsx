@@ -6,7 +6,8 @@ import { BottomTabNavigation } from '../components/BottomTabNavigation';
 import { DepartmentManagementScreen } from '../screens/admin/DepartmentManagementScreen';
 import { RolePolicyScreen } from '../screens/admin/RolePolicyScreen';
 import { UserManagementScreen } from '../screens/admin/UserManagementScreen';
-import { CartScreen, MyStoreScreen, ProductCatalogScreen, ProductDetailScreen } from '../screens/products';
+import { AdminCartScreen } from '../screens/admin/AdminCartScreen';
+import { CartScreen, CommerceCenterScreen, MyStoreScreen, ProductCatalogScreen, ProductDetailScreen } from '../screens/products';
 import { ProfileScreen } from '../screens/ProfileScreen';
 import { useAppTheme } from '../theme/AppThemeContext';
 import type { AuthUserContext, BottomTabItem, PermissionCheck, Product } from '../types';
@@ -22,11 +23,12 @@ export function AdminLayout({ can, authUser }: Props) {
     return [
       { key: 'home', label: 'Home', icon: 'home' },
       { key: 'products', label: 'Products', icon: 'grid' },
+      { key: 'orders', label: 'Orders', icon: 'receipt' },
       { key: 'settings', label: 'Settings', icon: 'settings' },
       { key: 'store', label: 'My Store', icon: 'storefront' },
       { key: 'profile', label: 'Profile', icon: 'person' },
     ];
-  }, [can]);
+  }, []);
 
   const [tab, setTab] = useState<string>('home');
 
@@ -86,6 +88,7 @@ export function AdminLayout({ can, authUser }: Props) {
     setSelectedProduct(null);
   }, []);
   const [settingsTab, setSettingsTab] = useState<'users' | 'departments' | 'roles'>('users');
+  const [adminCartVisible, setAdminCartVisible] = useState(false);
 
   const currentTab = tabs.some((item) => item.key === tab) ? tab : 'home';
 
@@ -99,6 +102,7 @@ export function AdminLayout({ can, authUser }: Props) {
     if (currentTab === 'products') return { title: 'Product Control', subtitle: 'Create, edit, and publish products for the marketplace.' };
     if (currentTab === 'store') return { title: 'Store Oversight', subtitle: 'Review every freelancer store from one dashboard.' };
     if (currentTab === 'profile') return { title: 'Admin Profile', subtitle: 'Manage your identity, settings, and security.' };
+    if (currentTab === 'orders') return { title: 'Commerce Operations', subtitle: 'Monitor orders, delivery notes, loyalty accounts, and warranty cards.' };
     if (currentTab === 'settings') return { title: 'Admin Settings', subtitle: 'Manage users, departments, and permissions.' };
     return { title: `Welcome, ${authUser.username}`, subtitle: 'Your admin workspace is ready.' };
   }, [authUser.username, currentTab]);
@@ -109,6 +113,9 @@ export function AdminLayout({ can, authUser }: Props) {
         title={headerCopy.title}
         subtitle={headerCopy.subtitle}
         roleLabel="Admin"
+        showCart
+        cartCount={0}
+        onPressCart={() => setAdminCartVisible(true)}
       />
 
       <View style={styles.content}>
@@ -122,6 +129,8 @@ export function AdminLayout({ can, authUser }: Props) {
         {currentTab === 'products' && (
           <ProductCatalogScreen authUser={authUser} isAdmin onSelectProduct={handleSelectProduct} />
         )}
+
+        {currentTab === 'orders' && <CommerceCenterScreen authUser={authUser} isAdmin />}
 
         {currentTab === 'store' && (
           <MyStoreScreen authUser={authUser} isAdmin onSelectProduct={handleSelectProduct} />
@@ -196,6 +205,11 @@ export function AdminLayout({ can, authUser }: Props) {
           onClose={() => setCartVisible(false)}
         />
       </Modal>
+
+      {/* Admin overview: all freelancer carts */}
+      <Modal visible={adminCartVisible} animationType="slide" onRequestClose={() => setAdminCartVisible(false)}>
+        <AdminCartScreen onClose={() => setAdminCartVisible(false)} />
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -242,10 +256,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   settingsTabButtonActive: {
-    backgroundColor: '#efe4ff',
+    backgroundColor: '#DCEEFF',
   },
   settingsTabButtonActiveDark: {
-    backgroundColor: '#312b52',
+    backgroundColor: '#1A3A6B',
   },
   settingsTabText: {
     fontSize: 12,
@@ -254,9 +268,9 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   settingsTabTextActive: {
-    color: '#6d28d9',
+    color: '#1565C0',
   },
   settingsTabTextActiveDark: {
-    color: '#c4b5fd',
+    color: '#64B5F6',
   },
 });

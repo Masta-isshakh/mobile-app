@@ -48,7 +48,7 @@ export function BottomTabNavigation({ tabs, current, onChange }: Props) {
                 <Ionicons
                   name={iconName}
                   size={ICON_SIZE}
-                  color={active ? (isDarkMode ? '#c4b5fd' : '#8b3cf6') : isDarkMode ? '#cbd5e1' : '#6b7280'}
+                  color={active ? (isDarkMode ? '#64B5F6' : '#1565C0') : isDarkMode ? '#cbd5e1' : '#6b7280'}
                 />
               </View>
               <Text
@@ -112,10 +112,10 @@ const styles = StyleSheet.create({
     backgroundColor: '#303657',
   },
   iconBubbleActive: {
-    backgroundColor: '#efe4ff',
+    backgroundColor: '#DCEEFF',
   },
   iconBubbleActiveDark: {
-    backgroundColor: '#3c2c68',
+    backgroundColor: '#1A3A6B',
   },
   tabTitle: {
     fontSize: 11,
@@ -126,10 +126,10 @@ const styles = StyleSheet.create({
     color: '#d0d5ea',
   },
   tabTitleActive: {
-    color: '#7c3aed',
+    color: '#1565C0',
     fontWeight: '800',
   },
   tabTitleActiveDark: {
-    color: '#c4b5fd',
+    color: '#64B5F6',
   },
 });

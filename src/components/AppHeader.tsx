@@ -23,32 +23,29 @@ export function AppHeader({
 
   return (
     <View style={[styles.wrap, isDarkMode ? styles.wrapDark : undefined]}>
-      <View style={styles.bgLayerOne} />
-      <View style={styles.bgLayerTwo} />
-      <View style={styles.bgLayerThree} />
+      <View style={styles.blobTopRight} />
+      <View style={styles.blobBottomLeft} />
+      <View style={styles.blobAccent} />
 
-      <View style={styles.row}>
-        <View style={styles.left}>
-          <View style={[styles.roleBadge, isDarkMode ? styles.roleBadgeDark : undefined]}>
-            <Ionicons
-              name={roleLabel === 'Admin' ? 'shield-checkmark' : 'sparkles'}
-              size={12}
-              color="#ffffff"
-            />
-            <Text style={styles.roleBadgeText}>{roleLabel}</Text>
+      <View style={styles.logoRow}>
+        <View style={styles.brandMark}>
+          <View style={styles.brandIconCircle}>
+            <Ionicons name="shield-checkmark" size={17} color="#ffffff" />
           </View>
-
-          <Text style={styles.title} numberOfLines={1}>
-            {title}
-          </Text>
-          <Text style={styles.subtitle} numberOfLines={1}>
-            {subtitle}
-          </Text>
+          <View>
+            <View style={styles.brandNameRow}>
+              <Text style={styles.brandJama}>JAMA</Text>
+              <View style={styles.brandGoPill}>
+                <Text style={styles.brandGoText}>GO</Text>
+              </View>
+            </View>
+            <Text style={styles.brandTagline}>Security Equipment</Text>
+          </View>
         </View>
 
-        {showCart ? (
-          <Pressable style={[styles.cartButton, isDarkMode ? styles.cartButtonDark : undefined]} onPress={onPressCart}>
-            <Ionicons name="cart-outline" size={22} color="#2e1065" />
+                    {showCart ? (
+          <Pressable style={styles.cartButton} onPress={onPressCart}>
+            <Ionicons name="cart-outline" size={22} color="#1565C0" />
             {cartCount > 0 && (
               <View style={styles.cartBadge}>
                 <Text style={styles.cartBadgeText}>{cartCount > 99 ? '99+' : cartCount}</Text>
@@ -56,7 +53,12 @@ export function AppHeader({
             )}
           </Pressable>
         ) : null}
+
       </View>
+
+      <View style={styles.divider} />
+
+
     </View>
   );
 }
@@ -68,84 +70,144 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     borderRadius: 22,
     paddingHorizontal: 16,
-    paddingVertical: 16,
-    backgroundColor: '#5b21b6',
+    paddingTop: 14,
+    paddingBottom: 14,
+    backgroundColor: '#1565C0',
     overflow: 'hidden',
   },
   wrapDark: {
-    backgroundColor: '#312e81',
+    backgroundColor: '#0D47A1',
   },
-  bgLayerOne: {
+  blobTopRight: {
     position: 'absolute',
-    width: 180,
-    height: 180,
-    borderRadius: 90,
-    right: -42,
-    top: -64,
-    backgroundColor: '#7c3aed',
-    opacity: 0.7,
+    width: 160,
+    height: 160,
+    borderRadius: 80,
+    right: -40,
+    top: -55,
+    backgroundColor: '#1976D2',
+    opacity: 0.6,
   },
-  bgLayerTwo: {
+  blobBottomLeft: {
     position: 'absolute',
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    left: -24,
-    bottom: -42,
-    backgroundColor: '#312e81',
+    width: 110,
+    height: 110,
+    borderRadius: 55,
+    left: -22,
+    bottom: -38,
+    backgroundColor: '#0D47A1',
     opacity: 0.5,
   },
-  bgLayerThree: {
+  blobAccent: {
     position: 'absolute',
-    width: 70,
-    height: 70,
-    borderRadius: 35,
-    right: 74,
-    bottom: -12,
-    backgroundColor: '#8b5cf6',
-    opacity: 0.45,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    right: 80,
+    bottom: -10,
+    backgroundColor: '#F7941D',
+    opacity: 0.28,
   },
-  row: {
+  logoRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: 10,
+    marginBottom: 10,
   },
-  left: {
+  brandMark: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 9,
     flex: 1,
-    paddingRight: 8,
   },
-  roleBadge: {
-    alignSelf: 'flex-start',
+  brandIconCircle: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    borderWidth: 1.5,
+    borderColor: 'rgba(255,255,255,0.4)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  brandNameRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
-    paddingHorizontal: 8,
+  },
+  brandJama: {
+    fontSize: 18,
+    fontWeight: '900',
+    color: '#ffffff',
+    letterSpacing: 1.5,
+  },
+  brandGoPill: {
+    backgroundColor: '#F7941D',
+    borderRadius: 6,
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+  },
+  brandGoText: {
+    fontSize: 13,
+    fontWeight: '900',
+    color: '#ffffff',
+    letterSpacing: 1,
+  },
+  brandTagline: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: 'rgba(255,255,255,0.72)',
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
+  },
+  roleBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 9,
     paddingVertical: 4,
     borderRadius: 999,
-    backgroundColor: 'rgba(255,255,255,0.22)',
-    marginBottom: 8,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.3)',
   },
   roleBadgeDark: {
-    backgroundColor: 'rgba(255,255,255,0.17)',
+    backgroundColor: 'rgba(255,255,255,0.14)',
   },
   roleBadgeText: {
     fontSize: 11,
     fontWeight: '700',
     color: '#ffffff',
-    letterSpacing: 0.5,
+    letterSpacing: 0.4,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: 'rgba(247,148,29,0.45)',
+    marginBottom: 10,
+    borderRadius: 1,
+  },
+  contentRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+  },
+  textBlock: {
+    flex: 1,
+    paddingRight: 8,
   },
   title: {
-    fontSize: 23,
+    fontSize: 21,
     fontWeight: '800',
     color: '#ffffff',
-    letterSpacing: 0.3,
+    letterSpacing: 0.2,
   },
   subtitle: {
-    marginTop: 4,
+    marginTop: 3,
     fontSize: 12,
     fontWeight: '500',
-    color: '#ddd6fe',
+    color: 'rgba(255,255,255,0.78)',
   },
   cartButton: {
     width: 46,
@@ -156,12 +218,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     shadowColor: '#000000',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
+    shadowOpacity: 0.18,
     shadowRadius: 10,
     elevation: 8,
-  },
-  cartButtonDark: {
-    backgroundColor: '#e9e7ff',
   },
   cartBadge: {
     position: 'absolute',
@@ -170,7 +229,7 @@ const styles = StyleSheet.create({
     minWidth: 18,
     height: 18,
     borderRadius: 9,
-    backgroundColor: '#e11d48',
+    backgroundColor: '#F7941D',
     paddingHorizontal: 4,
     alignItems: 'center',
     justifyContent: 'center',

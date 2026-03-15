@@ -1,13 +1,14 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Modal, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppHeader } from '../components/AppHeader';
 import { BottomTabNavigation } from '../components/BottomTabNavigation';
 import { FreelancerScreen } from '../screens/freelancer/FreelancerScreen';
-import { CartScreen, MyStoreScreen, ProductCatalogScreen, ProductDetailScreen } from '../screens/products';
+import { CartScreen, CommerceCenterScreen, MyStoreScreen, ProductCatalogScreen, ProductDetailScreen } from '../screens/products';
 import { ProfileScreen } from '../screens/ProfileScreen';
+import { client } from '../lib/amplifyClient';
 import { useAppTheme } from '../theme/AppThemeContext';
-import type { AuthUserContext, BottomTabItem, PermissionCheck, Product } from '../types';
+import type { AuthUserContext, BottomTabItem, CartItem, PermissionCheck, Product } from '../types';
 
 type Props = {
   can: PermissionCheck;
@@ -20,7 +21,7 @@ export function FreelancerLayout({ can, authUser }: Props) {
     return [
       { key: 'home', label: 'Home', icon: 'home' },
       { key: 'products', label: 'Products', icon: 'grid' },
-      { key: 'settings', label: 'Settings', icon: 'settings' },
+      { key: 'orders', label: 'Orders', icon: 'receipt' },
       { key: 'store', label: 'My Store', icon: 'storefront' },
       { key: 'profile', label: 'Profile', icon: 'person' },
     ];
@@ -31,6 +32,43 @@ export function FreelancerLayout({ can, authUser }: Props) {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [cartVisible, setCartVisible] = useState(false);
   const [cart, setCart] = useState<Map<string, { product: Product; quantity: number }>>(new Map());
+  // Tracks DynamoDB CartItem IDs so we can update/delete instead of re-creating
+  const cartDbIds = useRef<Map<string, string>>(new Map());
+
+  // Load persisted cart from DynamoDB on mount
+  useEffect(() => {
+    const loadCart = async () => {
+      try {
+        const { data } = await client.models.CartItem.list({
+          filter: { ownerSub: { eq: authUser.sub } },
+        });
+        if (!data?.length) return;
+        const newCart = new Map<string, { product: Product; quantity: number }>();
+        const newIds = new Map<string, string>();
+        for (const item of data as CartItem[]) {
+          newCart.set(item.productId, {
+            product: {
+              id: item.productId,
+              name: item.productName,
+              price: item.productPrice ?? 0,
+              description: null,
+              imageDataUrl: item.productImageUrl ?? null,
+              creatorSub: '',
+              creatorUsername: item.creatorUsername ?? '',
+            },
+            quantity: item.quantity,
+          });
+          newIds.set(item.productId, item.id);
+        }
+        setCart(newCart);
+        cartDbIds.current = newIds;
+      } catch {
+        // Non-fatal: fall back to empty in-memory cart
+      }
+    };
+    void loadCart();
+  }, [authUser.sub]);
+
   const cartItems = useMemo(() => Array.from(cart.values()), [cart]);
   const totalCartItems = useMemo(() => cartItems.reduce((sum, item) => sum + item.quantity, 0), [cartItems]);
   const handleSelectProduct = useCallback((product: Product) => setSelectedProduct(product), []);
@@ -38,20 +76,40 @@ export function FreelancerLayout({ can, authUser }: Props) {
     setCart((prev) => {
       const next = new Map(prev);
       const current = next.get(product.id);
-      next.set(product.id, {
-        product,
-        quantity: (current?.quantity ?? 0) + 1,
-      });
+      const newQty = (current?.quantity ?? 0) + 1;
+      next.set(product.id, { product, quantity: newQty });
+
+      // Sync to DynamoDB
+      const dbId = cartDbIds.current.get(product.id);
+      if (dbId) {
+        void client.models.CartItem.update({ id: dbId, quantity: newQty });
+      } else {
+        void client.models.CartItem.create({
+          productId: product.id,
+          productName: product.name,
+          productPrice: product.price ?? 0,
+          productImageUrl: product.imageDataUrl ?? undefined,
+          creatorUsername: product.creatorUsername,
+          quantity: newQty,
+          ownerSub: authUser.sub,
+          ownerUsername: authUser.username,
+        }).then((result: { data?: { id?: string } | null }) => {
+          if (result.data?.id) cartDbIds.current.set(product.id, result.data.id);
+        });
+      }
       return next;
     });
-  }, []);
+  }, [authUser.sub, authUser.username]);
 
   const increaseCartQty = useCallback((productId: string) => {
     setCart((prev) => {
       const next = new Map(prev);
       const current = next.get(productId);
       if (!current) return prev;
-      next.set(productId, { ...current, quantity: current.quantity + 1 });
+      const newQty = current.quantity + 1;
+      next.set(productId, { ...current, quantity: newQty });
+      const dbId = cartDbIds.current.get(productId);
+      if (dbId) void client.models.CartItem.update({ id: dbId, quantity: newQty });
       return next;
     });
   }, []);
@@ -63,8 +121,16 @@ export function FreelancerLayout({ can, authUser }: Props) {
       if (!current) return prev;
       if (current.quantity <= 1) {
         next.delete(productId);
+        const dbId = cartDbIds.current.get(productId);
+        if (dbId) {
+          void client.models.CartItem.delete({ id: dbId });
+          cartDbIds.current.delete(productId);
+        }
       } else {
-        next.set(productId, { ...current, quantity: current.quantity - 1 });
+        const newQty = current.quantity - 1;
+        next.set(productId, { ...current, quantity: newQty });
+        const dbId = cartDbIds.current.get(productId);
+        if (dbId) void client.models.CartItem.update({ id: dbId, quantity: newQty });
       }
       return next;
     });
@@ -74,11 +140,22 @@ export function FreelancerLayout({ can, authUser }: Props) {
     setCart((prev) => {
       const next = new Map(prev);
       next.delete(productId);
+      const dbId = cartDbIds.current.get(productId);
+      if (dbId) {
+        void client.models.CartItem.delete({ id: dbId });
+        cartDbIds.current.delete(productId);
+      }
       return next;
     });
   }, []);
 
   const clearCart = useCallback(() => {
+    // Delete all DB cart items for this user
+    const idsToDelete = Array.from(cartDbIds.current.values());
+    for (const id of idsToDelete) {
+      void client.models.CartItem.delete({ id });
+    }
+    cartDbIds.current.clear();
     setCart(new Map());
     setCartVisible(false);
     setSelectedProduct(null);
@@ -88,7 +165,7 @@ export function FreelancerLayout({ can, authUser }: Props) {
     if (tab === 'products') return { title: 'Product Market', subtitle: 'Browse, rate, and add products to your cart.' };
     if (tab === 'store') return { title: 'My Storefront', subtitle: 'Your curated items, ready to share and sell.' };
     if (tab === 'profile') return { title: 'Profile Studio', subtitle: 'Your account, preferences, and identity details.' };
-    if (tab === 'settings') return { title: 'Workspace Settings', subtitle: 'Adjust your app behavior and preferences.' };
+    if (tab === 'orders') return { title: 'Orders And Loyalty', subtitle: 'Track orders, delivery notes, warranty cards, and loyalty rewards.' };
     return { title: `Hello, ${authUser.username}`, subtitle: 'Your workspace is personalized by role permissions.' };
   }, [authUser.username, tab]);
 
@@ -110,12 +187,7 @@ export function FreelancerLayout({ can, authUser }: Props) {
           <ProductCatalogScreen authUser={authUser} isAdmin={false} onSelectProduct={handleSelectProduct} />
         )}
 
-        {tab === 'settings' && (
-          <View style={[styles.card, { backgroundColor: colors.surface }]}>
-            <Text style={[styles.cardTitle, { color: colors.text }]}>Settings</Text>
-            <Text style={[styles.cardText, { color: colors.textMuted }]}>Account and notification settings can be managed here.</Text>
-          </View>
-        )}
+        {tab === 'orders' && <CommerceCenterScreen authUser={authUser} isAdmin={false} />}
 
         {tab === 'store' && (
           <MyStoreScreen authUser={authUser} isAdmin={false} onSelectProduct={handleSelectProduct} />

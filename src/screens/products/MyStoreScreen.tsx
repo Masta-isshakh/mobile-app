@@ -120,7 +120,6 @@ export function MyStoreScreen({ authUser, isAdmin, onSelectProduct }: Props) {
                         <View style={styles.productMeta}>
                           <Text style={styles.productName}>{product.name}</Text>
                           <Text style={styles.productPrice}>{formatQar(product.price ?? 0)}</Text>
-                          {!!product.description && <Text style={styles.productDescription}>{product.description}</Text>}
                         </View>
                       </Pressable>
                     );
@@ -157,7 +156,6 @@ export function MyStoreScreen({ authUser, isAdmin, onSelectProduct }: Props) {
 
                 <Text style={styles.productName}>{product.name}</Text>
                 <Text style={styles.productPrice}>{formatQar(product.price ?? 0)}</Text>
-                {!!product.description && <Text style={styles.productDescription}>{product.description}</Text>}
                 {isAdmin && <Text style={styles.productOwner}>By {product.creatorUsername}</Text>}
               </Pressable>
             );
@@ -300,12 +298,6 @@ const styles = StyleSheet.create({
     color: '#0f766e',
     fontWeight: '800',
     fontSize: 14,
-  },
-  productDescription: {
-    marginTop: 4,
-    color: '#52617c',
-    fontSize: 12,
-    lineHeight: 16,
   },
   productOwner: {
     marginTop: 4,

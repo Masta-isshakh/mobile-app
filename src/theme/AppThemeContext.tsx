@@ -11,6 +11,7 @@ type AppThemeColors = {
   textMuted: string;
   border: string;
   primary: string;
+  accent: string;
   danger: string;
 };
 
@@ -22,25 +23,27 @@ type AppThemeContextValue = {
 };
 
 const lightColors: AppThemeColors = {
-  background: '#efe7ff',
+  background: '#EEF4FF',
   surface: '#ffffff',
-  surfaceMuted: '#f5f1ff',
-  text: '#1f2a44',
-  textMuted: '#5b6880',
-  border: '#d9e2f0',
-  primary: '#7c3aed',
-  danger: '#dc2626',
+  surfaceMuted: '#F0F7FF',
+  text: '#0D1B2A',
+  textMuted: '#5A7093',
+  border: '#C5D8F0',
+  primary: '#1565C0',
+  accent: '#F7941D',
+  danger: '#D32F2F',
 };
 
 const darkColors: AppThemeColors = {
-  background: '#121326',
-  surface: '#1e2138',
-  surfaceMuted: '#2b2f4d',
-  text: '#f5f7ff',
-  textMuted: '#c7cdea',
-  border: '#373d63',
-  primary: '#a78bfa',
-  danger: '#f87171',
+  background: '#0B1630',
+  surface: '#132040',
+  surfaceMuted: '#1A2E55',
+  text: '#E8EFF8',
+  textMuted: '#8DACC8',
+  border: '#2A3D5C',
+  primary: '#64B5F6',
+  accent: '#FFAB40',
+  danger: '#EF5350',
 };
 
 const AppThemeContext = createContext<AppThemeContextValue | null>(null);

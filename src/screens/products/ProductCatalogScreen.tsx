@@ -21,7 +21,13 @@ import { SuccessPopup } from '../../components/SuccessPopup';
 import { client } from '../../lib/amplifyClient';
 import { useAppTheme } from '../../theme/AppThemeContext';
 import { formatQar } from '../../utils/currency';
-import type { AuthUserContext, Product, ProductRating, StoreProduct } from '../../types';
+import type {
+  AuthUserContext,
+  Product,
+  ProductCategoryValue,
+  ProductRating,
+  StoreProduct,
+} from '../../types';
 
 type Props = {
   authUser: AuthUserContext;
@@ -33,6 +39,45 @@ type RatingSummary = {
   average: number;
   count: number;
 };
+
+type ProductCategoryFilter = 'ALL' | ProductCategoryValue;
+type ProductSortOption = 'NEWEST' | 'PRICE_ASC' | 'TOP_RATED';
+
+const PRODUCT_CATEGORIES: ProductCategoryFilter[] = [
+  'ALL',
+  'SURVEILLANCE',
+  'ACCESS_CONTROL',
+  'SAFETY',
+  'POWER',
+  'OTHER',
+];
+
+const PRODUCT_SORT_OPTIONS: Array<{ value: ProductSortOption; label: string }> = [
+  { value: 'NEWEST', label: 'Newest' },
+  { value: 'PRICE_ASC', label: 'Price: Low to High' },
+  { value: 'TOP_RATED', label: 'Top Rated' },
+];
+
+function getProductCategoryValue(product: Product): ProductCategoryValue {
+  return product.category ?? 'OTHER';
+}
+
+function getProductCategoryLabel(category: ProductCategoryFilter): string {
+  switch (category) {
+    case 'ALL':
+      return 'All';
+    case 'SURVEILLANCE':
+      return 'Surveillance';
+    case 'ACCESS_CONTROL':
+      return 'Access Control';
+    case 'SAFETY':
+      return 'Safety';
+    case 'POWER':
+      return 'Power';
+    default:
+      return 'Other';
+  }
+}
 
 function StarRow({ value, size = 18 }: { value: number; size?: number }) {
   return (
@@ -54,6 +99,10 @@ export function ProductCatalogScreen({ authUser, isAdmin, onSelectProduct }: Pro
   const [products, setProducts] = useState<Product[]>([]);
   const [ratings, setRatings] = useState<ProductRating[]>([]);
   const [storeItems, setStoreItems] = useState<StoreProduct[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState<ProductCategoryFilter>('ALL');
+  const [sortOption, setSortOption] = useState<ProductSortOption>('NEWEST');
+  const [filterDrawerVisible, setFilterDrawerVisible] = useState(false);
   const [message, setMessage] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [processingProductId, setProcessingProductId] = useState<string | null>(null);
@@ -64,6 +113,7 @@ export function ProductCatalogScreen({ authUser, isAdmin, onSelectProduct }: Pro
   const [uploading, setUploading] = useState(false);
 
   const [name, setName] = useState('');
+  const [productCategory, setProductCategory] = useState<ProductCategoryValue | ''>('');
   const [priceText, setPriceText] = useState('');
   const [description, setDescription] = useState('');
   const [imageDataUrl, setImageDataUrl] = useState('');
@@ -71,6 +121,7 @@ export function ProductCatalogScreen({ authUser, isAdmin, onSelectProduct }: Pro
   const [editingProductId, setEditingProductId] = useState<string | null>(null);
 
   const { width: windowWidth } = useWindowDimensions();
+  const isCompactLayout = windowWidth < 720;
   const cardGap = 10;
   const horizontalPadding = 24;
   const cardWidth = Math.max(Math.floor((windowWidth - horizontalPadding - cardGap) / 2), 150);
@@ -113,6 +164,7 @@ export function ProductCatalogScreen({ authUser, isAdmin, onSelectProduct }: Pro
 
   const resetForm = useCallback(() => {
     setName('');
+    setProductCategory('');
     setPriceText('');
     setDescription('');
     setImageDataUrl('');
@@ -171,6 +223,11 @@ export function ProductCatalogScreen({ authUser, isAdmin, onSelectProduct }: Pro
       return;
     }
 
+    if (!productCategory) {
+      setMessage('Please choose a category.');
+      return;
+    }
+
     const price = parsePrice();
     if (price === null) {
       setMessage('Price must be a valid number greater than or equal to 0.');
@@ -183,6 +240,7 @@ export function ProductCatalogScreen({ authUser, isAdmin, onSelectProduct }: Pro
     try {
       const productResponse = await client.models.ProductX.create({
         name: name.trim(),
+        category: productCategory,
         price,
         description: description.trim() || undefined,
         imageDataUrl: imageDataUrl || undefined,
@@ -213,11 +271,12 @@ export function ProductCatalogScreen({ authUser, isAdmin, onSelectProduct }: Pro
     } finally {
       setUploading(false);
     }
-  }, [authUser.sub, authUser.username, description, imageDataUrl, initialScore, loadData, name, parsePrice, resetForm]);
+  }, [authUser.sub, authUser.username, description, imageDataUrl, initialScore, loadData, name, parsePrice, productCategory, resetForm]);
 
   const openEdit = useCallback((product: Product) => {
     setEditingProductId(product.id);
     setName(product.name);
+    setProductCategory(product.category ?? 'OTHER');
     setPriceText(String(product.price ?? 0));
     setDescription(product.description ?? '');
     setImageDataUrl(product.imageDataUrl ?? '');
@@ -230,6 +289,11 @@ export function ProductCatalogScreen({ authUser, isAdmin, onSelectProduct }: Pro
     }
     if (!name.trim()) {
       setMessage('Product name is required.');
+      return;
+    }
+
+    if (!productCategory) {
+      setMessage('Please choose a category.');
       return;
     }
 
@@ -246,6 +310,7 @@ export function ProductCatalogScreen({ authUser, isAdmin, onSelectProduct }: Pro
       await client.models.ProductX.update({
         id: editingProductId,
         name: name.trim(),
+        category: productCategory,
         price,
         description: description.trim() || undefined,
         imageDataUrl: imageDataUrl || undefined,
@@ -264,7 +329,7 @@ export function ProductCatalogScreen({ authUser, isAdmin, onSelectProduct }: Pro
     } finally {
       setUploading(false);
     }
-  }, [description, editingProductId, imageDataUrl, loadData, name, parsePrice, resetForm]);
+  }, [description, editingProductId, imageDataUrl, loadData, name, parsePrice, productCategory, resetForm]);
 
   const deleteProduct = useCallback((product: Product) => {
     Alert.alert('Delete Product', `Delete "${product.name}" permanently?`, [
@@ -325,7 +390,60 @@ export function ProductCatalogScreen({ authUser, isAdmin, onSelectProduct }: Pro
     [authUser.sub, authUser.username, loadData, storedProductIds],
   );
 
-  const sortedProducts = useMemo(() => [...products].reverse(), [products]);
+  const normalizedSearchQuery = searchQuery.trim().toLowerCase();
+  const productsByNewest = useMemo(() => {
+    return [...products].sort((left, right) => {
+      const leftTime = left.createdAt ? Date.parse(left.createdAt) : 0;
+      const rightTime = right.createdAt ? Date.parse(right.createdAt) : 0;
+      return rightTime - leftTime;
+    });
+  }, [products]);
+
+  const categoryCounts = useMemo(() => {
+    const counts = new Map<ProductCategoryFilter, number>();
+    PRODUCT_CATEGORIES.forEach((category) => counts.set(category, 0));
+    counts.set('ALL', productsByNewest.length);
+
+    for (const product of productsByNewest) {
+      const category = getProductCategoryValue(product);
+      counts.set(category, (counts.get(category) ?? 0) + 1);
+    }
+
+    return counts;
+  }, [productsByNewest]);
+
+  const visibleProducts = useMemo(() => {
+    const filtered = productsByNewest.filter((product) => {
+      const matchesCategory =
+        selectedCategory === 'ALL' || getProductCategoryValue(product) === selectedCategory;
+
+      if (!matchesCategory) {
+        return false;
+      }
+
+      if (!normalizedSearchQuery) {
+        return true;
+      }
+
+      const searchable = `${product.name} ${product.description ?? ''} ${product.creatorUsername}`.toLowerCase();
+      return searchable.includes(normalizedSearchQuery);
+    });
+
+    if (sortOption === 'PRICE_ASC') {
+      filtered.sort((left, right) => (left.price ?? 0) - (right.price ?? 0));
+    } else if (sortOption === 'TOP_RATED') {
+      filtered.sort((left, right) => {
+        const leftSummary = ratingSummaryByProduct.get(left.id) ?? { average: 0, count: 0 };
+        const rightSummary = ratingSummaryByProduct.get(right.id) ?? { average: 0, count: 0 };
+        if (rightSummary.average !== leftSummary.average) {
+          return rightSummary.average - leftSummary.average;
+        }
+        return rightSummary.count - leftSummary.count;
+      });
+    }
+
+    return filtered;
+  }, [normalizedSearchQuery, productsByNewest, ratingSummaryByProduct, selectedCategory, sortOption]);
 
   return (
     <View style={[styles.wrap, { backgroundColor: colors.background }]}> 
@@ -337,6 +455,112 @@ export function ProductCatalogScreen({ authUser, isAdmin, onSelectProduct }: Pro
             <Text style={styles.uploadButtonText}>Create Product</Text>
           </Pressable>
         )}
+      </View>
+
+      <View style={[styles.discoveryPanel, { backgroundColor: colors.surface }]}> 
+        <View style={styles.searchRow}>
+          <View style={[styles.searchShell, { backgroundColor: colors.surfaceMuted, borderColor: colors.border }]}> 
+            <Ionicons name="search-outline" size={18} color={colors.textMuted} />
+            <TextInput
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              placeholder="Search products, keywords, or creators"
+              placeholderTextColor={colors.textMuted}
+              style={[styles.searchInput, { color: colors.text }]}
+            />
+            {searchQuery ? (
+              <Pressable style={styles.clearSearchButton} onPress={() => setSearchQuery('')}>
+                <Ionicons name="close-circle" size={18} color={colors.textMuted} />
+              </Pressable>
+            ) : null}
+          </View>
+
+          {isCompactLayout ? (
+            <Pressable
+              style={[styles.filterDrawerButton, { backgroundColor: colors.primary }]}
+              onPress={() => setFilterDrawerVisible(true)}
+            >
+              <Ionicons name="options-outline" size={18} color="#ffffff" />
+              <Text style={styles.filterDrawerButtonText}>Filters</Text>
+            </Pressable>
+          ) : null}
+        </View>
+
+        {!isCompactLayout ? (
+          <>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.categoryRow}
+            >
+              {PRODUCT_CATEGORIES.map((category) => {
+                const active = selectedCategory === category;
+                return (
+                  <Pressable
+                    key={category}
+                    style={[
+                      styles.categoryChip,
+                      {
+                        backgroundColor: active ? colors.primary : colors.surfaceMuted,
+                        borderColor: active ? colors.primary : colors.border,
+                      },
+                    ]}
+                    onPress={() => setSelectedCategory(category)}
+                  >
+                    <Text style={[styles.categoryChipText, { color: active ? '#ffffff' : colors.text }]}>
+                      {getProductCategoryLabel(category)}
+                    </Text>
+                    <View
+                      style={[
+                        styles.categoryCountBadge,
+                        { backgroundColor: active ? 'rgba(255,255,255,0.2)' : '#F7941D' },
+                      ]}
+                    >
+                      <Text style={styles.categoryCountText}>{categoryCounts.get(category) ?? 0}</Text>
+                    </View>
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.sortRow}
+            >
+              {PRODUCT_SORT_OPTIONS.map((option) => {
+                const active = sortOption === option.value;
+                return (
+                  <Pressable
+                    key={option.value}
+                    style={[
+                      styles.sortChip,
+                      {
+                        backgroundColor: active ? colors.surfaceMuted : colors.surface,
+                        borderColor: active ? colors.primary : colors.border,
+                      },
+                    ]}
+                    onPress={() => setSortOption(option.value)}
+                  >
+                    <Text style={[styles.sortChipText, { color: active ? colors.primary : colors.textMuted }]}>
+                      {option.label}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+          </>
+        ) : (
+          <View style={styles.compactFilterSummary}>
+            <Text style={[styles.compactFilterSummaryText, { color: colors.textMuted }]}>
+              {getProductCategoryLabel(selectedCategory)} · {PRODUCT_SORT_OPTIONS.find((option) => option.value === sortOption)?.label}
+            </Text>
+          </View>
+        )}
+
+        <Text style={[styles.resultsMeta, { color: colors.textMuted }]}> 
+          Showing {visibleProducts.length} of {productsByNewest.length} products
+        </Text>
       </View>
 
       {!!message && <Text style={styles.message}>{message}</Text>}
@@ -360,16 +584,24 @@ export function ProductCatalogScreen({ authUser, isAdmin, onSelectProduct }: Pro
           },
         ]}
       >
-        {sortedProducts.length === 0 && (
+        {productsByNewest.length === 0 && (
           <View style={[styles.emptyCard, { backgroundColor: colors.surface }]}> 
             <Text style={styles.emptyTitle}>No Products Yet</Text>
             <Text style={styles.emptyText}>Admins can create products. Freelancers can browse and add them to their store.</Text>
           </View>
         )}
 
-        {sortedProducts.map((product) => {
+        {productsByNewest.length > 0 && visibleProducts.length === 0 && (
+          <View style={[styles.emptyCard, { backgroundColor: colors.surface }]}> 
+            <Text style={styles.emptyTitle}>No Matching Products</Text>
+            <Text style={styles.emptyText}>Try a different search term or switch to another category.</Text>
+          </View>
+        )}
+
+        {visibleProducts.map((product) => {
           const summary = ratingSummaryByProduct.get(product.id) ?? { average: 0, count: 0 };
           const alreadyInStore = storedProductIds.has(product.id);
+          const category = getProductCategoryValue(product);
 
           return (
             <Pressable
@@ -398,9 +630,9 @@ export function ProductCatalogScreen({ authUser, isAdmin, onSelectProduct }: Pro
 
               <Text style={styles.cardTitle} numberOfLines={2}>{product.name}</Text>
               <Text style={styles.priceText}>{formatQar(product.price ?? 0)}</Text>
-              {!!product.description && (
-                <Text style={styles.cardText} numberOfLines={2}>{product.description}</Text>
-              )}
+              <View style={[styles.productTag, { backgroundColor: colors.surfaceMuted }]}> 
+                <Text style={[styles.productTagText, { color: colors.primary }]}>{getProductCategoryLabel(category)}</Text>
+              </View>
               {isAdmin && <Text style={styles.metaText}>By {product.creatorUsername}</Text>}
 
               <View style={styles.compactRating}>
@@ -449,6 +681,29 @@ export function ProductCatalogScreen({ authUser, isAdmin, onSelectProduct }: Pro
             <Text style={styles.modalTitle}>Create Product</Text>
 
             <TextInput style={styles.input} value={name} onChangeText={setName} placeholder="Product name" />
+            <Text style={[styles.fieldLabel, { color: colors.text }]}>Category</Text>
+            <View style={styles.formChipWrap}>
+              {PRODUCT_CATEGORIES.filter((category) => category !== 'ALL').map((category) => {
+                const active = productCategory === category;
+                return (
+                  <Pressable
+                    key={category}
+                    style={[
+                      styles.formCategoryChip,
+                      {
+                        backgroundColor: active ? colors.primary : colors.surfaceMuted,
+                        borderColor: active ? colors.primary : colors.border,
+                      },
+                    ]}
+                    onPress={() => setProductCategory(category)}
+                  >
+                    <Text style={[styles.formCategoryChipText, { color: active ? '#ffffff' : colors.text }]}>
+                      {getProductCategoryLabel(category)}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
             <TextInput
               style={styles.input}
               value={priceText}
@@ -513,6 +768,29 @@ export function ProductCatalogScreen({ authUser, isAdmin, onSelectProduct }: Pro
             <Text style={styles.modalTitle}>Edit Product</Text>
 
             <TextInput style={styles.input} value={name} onChangeText={setName} placeholder="Product name" />
+            <Text style={[styles.fieldLabel, { color: colors.text }]}>Category</Text>
+            <View style={styles.formChipWrap}>
+              {PRODUCT_CATEGORIES.filter((category) => category !== 'ALL').map((category) => {
+                const active = productCategory === category;
+                return (
+                  <Pressable
+                    key={category}
+                    style={[
+                      styles.formCategoryChip,
+                      {
+                        backgroundColor: active ? colors.primary : colors.surfaceMuted,
+                        borderColor: active ? colors.primary : colors.border,
+                      },
+                    ]}
+                    onPress={() => setProductCategory(category)}
+                  >
+                    <Text style={[styles.formCategoryChipText, { color: active ? '#ffffff' : colors.text }]}>
+                      {getProductCategoryLabel(category)}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
             <TextInput
               style={styles.input}
               value={priceText}
@@ -563,6 +841,93 @@ export function ProductCatalogScreen({ authUser, isAdmin, onSelectProduct }: Pro
         description={successPopup.description}
         onClose={() => setSuccessPopup({ visible: false, title: '', description: '' })}
       />
+
+      <Modal
+        visible={filterDrawerVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setFilterDrawerVisible(false)}
+      >
+        <View style={styles.drawerOverlay}>
+          <Pressable style={StyleSheet.absoluteFill} onPress={() => setFilterDrawerVisible(false)} />
+          <View style={[styles.drawerCard, { backgroundColor: colors.surface }]}> 
+            <View style={styles.drawerHandle} />
+            <View style={styles.drawerHeader}>
+              <Text style={[styles.drawerTitle, { color: colors.text }]}>Filters & Sort</Text>
+              <Pressable onPress={() => setFilterDrawerVisible(false)}>
+                <Ionicons name="close" size={22} color={colors.textMuted} />
+              </Pressable>
+            </View>
+
+            <Text style={[styles.drawerSectionTitle, { color: colors.text }]}>Category</Text>
+            <View style={styles.drawerChipWrap}>
+              {PRODUCT_CATEGORIES.map((category) => {
+                const active = selectedCategory === category;
+                return (
+                  <Pressable
+                    key={category}
+                    style={[
+                      styles.drawerChip,
+                      {
+                        backgroundColor: active ? colors.primary : colors.surfaceMuted,
+                        borderColor: active ? colors.primary : colors.border,
+                      },
+                    ]}
+                    onPress={() => setSelectedCategory(category)}
+                  >
+                    <Text style={[styles.drawerChipText, { color: active ? '#ffffff' : colors.text }]}>
+                      {getProductCategoryLabel(category)}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+
+            <Text style={[styles.drawerSectionTitle, { color: colors.text }]}>Sort By</Text>
+            <View style={styles.drawerChipWrap}>
+              {PRODUCT_SORT_OPTIONS.map((option) => {
+                const active = sortOption === option.value;
+                return (
+                  <Pressable
+                    key={option.value}
+                    style={[
+                      styles.drawerChip,
+                      {
+                        backgroundColor: active ? colors.primary : colors.surfaceMuted,
+                        borderColor: active ? colors.primary : colors.border,
+                      },
+                    ]}
+                    onPress={() => setSortOption(option.value)}
+                  >
+                    <Text style={[styles.drawerChipText, { color: active ? '#ffffff' : colors.text }]}>
+                      {option.label}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+
+            <View style={styles.drawerButtons}>
+              <Pressable
+                style={[styles.drawerSecondaryButton, { backgroundColor: colors.surfaceMuted }]}
+                onPress={() => {
+                  setSelectedCategory('ALL');
+                  setSortOption('NEWEST');
+                  setSearchQuery('');
+                }}
+              >
+                <Text style={[styles.drawerSecondaryButtonText, { color: colors.text }]}>Reset</Text>
+              </Pressable>
+              <Pressable
+                style={[styles.drawerPrimaryButton, { backgroundColor: colors.primary }]}
+                onPress={() => setFilterDrawerVisible(false)}
+              >
+                <Text style={styles.drawerPrimaryButtonText}>Apply</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -596,6 +961,108 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontWeight: '700',
     fontSize: 12,
+  },
+  discoveryPanel: {
+    marginHorizontal: 12,
+    marginBottom: 10,
+    borderRadius: 18,
+    padding: 12,
+  },
+  searchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  searchShell: {
+    flex: 1,
+    minHeight: 48,
+    borderRadius: 14,
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '500',
+    paddingVertical: 0,
+  },
+  clearSearchButton: {
+    padding: 2,
+  },
+  filterDrawerButton: {
+    minHeight: 48,
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  filterDrawerButtonText: {
+    color: '#ffffff',
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  categoryRow: {
+    gap: 8,
+    paddingTop: 12,
+    paddingBottom: 4,
+  },
+  sortRow: {
+    gap: 8,
+    paddingTop: 6,
+    paddingBottom: 2,
+  },
+  categoryChip: {
+    borderRadius: 999,
+    borderWidth: 1,
+    paddingVertical: 9,
+    paddingLeft: 12,
+    paddingRight: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  categoryChipText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  categoryCountBadge: {
+    minWidth: 22,
+    height: 22,
+    borderRadius: 11,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 6,
+  },
+  categoryCountText: {
+    color: '#ffffff',
+    fontSize: 11,
+    fontWeight: '800',
+  },
+  sortChip: {
+    borderRadius: 999,
+    borderWidth: 1,
+    paddingVertical: 9,
+    paddingHorizontal: 12,
+  },
+  sortChipText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  compactFilterSummary: {
+    paddingTop: 10,
+  },
+  compactFilterSummaryText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  resultsMeta: {
+    marginTop: 8,
+    fontSize: 12,
+    fontWeight: '600',
   },
   message: {
     marginHorizontal: 12,
@@ -669,11 +1136,17 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     fontSize: 14,
   },
-  cardText: {
-    marginTop: 4,
-    fontSize: 12,
-    color: '#52617c',
-    lineHeight: 16,
+  productTag: {
+    alignSelf: 'flex-start',
+    marginTop: 6,
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  productTagText: {
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.3,
   },
   metaText: {
     marginTop: 4,
@@ -757,6 +1230,27 @@ const styles = StyleSheet.create({
     color: '#1f2a44',
     marginBottom: 8,
   },
+  fieldLabel: {
+    fontSize: 12,
+    fontWeight: '800',
+    marginBottom: 8,
+  },
+  formChipWrap: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 10,
+  },
+  formCategoryChip: {
+    borderRadius: 999,
+    borderWidth: 1,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+  },
+  formCategoryChipText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
   input: {
     borderWidth: 1,
     borderColor: '#d4deeb',
@@ -831,5 +1325,83 @@ const styles = StyleSheet.create({
   submitText: {
     color: '#ffffff',
     fontWeight: '700',
+  },
+  drawerOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(10, 17, 30, 0.45)',
+    justifyContent: 'flex-end',
+  },
+  drawerCard: {
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingHorizontal: 18,
+    paddingTop: 10,
+    paddingBottom: 24,
+  },
+  drawerHandle: {
+    alignSelf: 'center',
+    width: 42,
+    height: 5,
+    borderRadius: 999,
+    backgroundColor: '#cbd5e1',
+    marginBottom: 12,
+  },
+  drawerHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 14,
+  },
+  drawerTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+  },
+  drawerSectionTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+    marginBottom: 10,
+    marginTop: 4,
+  },
+  drawerChipWrap: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 14,
+  },
+  drawerChip: {
+    borderRadius: 999,
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+  },
+  drawerChipText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  drawerButtons: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 4,
+  },
+  drawerSecondaryButton: {
+    flex: 1,
+    borderRadius: 12,
+    alignItems: 'center',
+    paddingVertical: 12,
+  },
+  drawerSecondaryButtonText: {
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  drawerPrimaryButton: {
+    flex: 1,
+    borderRadius: 12,
+    alignItems: 'center',
+    paddingVertical: 12,
+  },
+  drawerPrimaryButtonText: {
+    color: '#ffffff',
+    fontSize: 13,
+    fontWeight: '800',
   },
 });

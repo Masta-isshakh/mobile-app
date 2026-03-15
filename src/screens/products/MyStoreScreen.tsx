@@ -1,18 +1,23 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Ionicons } from '@expo/vector-icons';
-import { Image, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { client } from '../../lib/amplifyClient';
 import type { AuthUserContext, Product, StoreProduct } from '../../types';
 
 type Props = {
   authUser: AuthUserContext;
   isAdmin: boolean;
+  onSelectProduct?: (product: Product) => void;
 };
 
-export function MyStoreScreen({ authUser, isAdmin }: Props) {
+export function MyStoreScreen({ authUser, isAdmin, onSelectProduct }: Props) {
   const [products, setProducts] = useState<Product[]>([]);
   const [storeItems, setStoreItems] = useState<StoreProduct[]>([]);
   const [message, setMessage] = useState('');
+  const { width: windowWidth } = useWindowDimensions();
+  const cardGap = 10;
+  const horizontalPadding = 24;
+  const cardWidth = Math.max(Math.floor((windowWidth - horizontalPadding - cardGap) / 2), 150);
 
   const loadData = useCallback(async () => {
     const [productsResponse, storeResponse] = await Promise.all([
@@ -37,7 +42,7 @@ export function MyStoreScreen({ authUser, isAdmin }: Props) {
   const groupedByUser = useMemo(() => {
     const map = new Map<string, StoreProduct[]>();
     for (const item of storeItems) {
-      const key = `${item.ownerUsername}::${item.ownerSub}`;
+      const key = item.ownerUsername;
       const list = map.get(key) ?? [];
       list.push(item);
       map.set(key, list);
@@ -54,7 +59,12 @@ export function MyStoreScreen({ authUser, isAdmin }: Props) {
       <Text style={styles.title}>{isAdmin ? 'All User Stores' : 'My Store'}</Text>
       {!!message && <Text style={styles.message}>{message}</Text>}
 
-      <ScrollView contentContainerStyle={styles.contentWrap}>
+      <ScrollView
+        contentContainerStyle={[
+          styles.contentWrap,
+          isAdmin ? styles.contentWrapAdmin : styles.contentWrapFreelancer,
+        ]}
+      >
         {isAdmin ? (
           groupedByUser.length === 0 ? (
             <View style={styles.emptyCard}>
@@ -63,11 +73,13 @@ export function MyStoreScreen({ authUser, isAdmin }: Props) {
             </View>
           ) : (
             groupedByUser.map(([key, items]) => {
-              const [ownerUsername, ownerSub] = key.split('::');
+              const ownerUsername = key;
               return (
                 <View key={key} style={styles.groupCard}>
                   <Text style={styles.groupTitle}>{ownerUsername}</Text>
-                  <Text style={styles.groupSubtitle}>User ID: {ownerSub}</Text>
+                  <Text style={styles.groupSubtitle}>
+                    {items.length} product{items.length !== 1 ? 's' : ''}
+                  </Text>
 
                   {items.map((item) => {
                     const product = productById.get(item.productId);
@@ -76,7 +88,11 @@ export function MyStoreScreen({ authUser, isAdmin }: Props) {
                     }
 
                     return (
-                      <View key={item.id} style={styles.productRow}>
+                      <Pressable
+                        key={item.id}
+                        style={styles.productRow}
+                        onPress={() => onSelectProduct?.(product)}
+                      >
                         {product.imageDataUrl ? (
                           <Image source={{ uri: product.imageDataUrl }} style={styles.thumb} />
                         ) : (
@@ -87,9 +103,10 @@ export function MyStoreScreen({ authUser, isAdmin }: Props) {
 
                         <View style={styles.productMeta}>
                           <Text style={styles.productName}>{product.name}</Text>
+                          <Text style={styles.productPrice}>${(product.price ?? 0).toFixed(2)}</Text>
                           {!!product.description && <Text style={styles.productDescription}>{product.description}</Text>}
                         </View>
-                      </View>
+                      </Pressable>
                     );
                   })}
                 </View>
@@ -109,7 +126,11 @@ export function MyStoreScreen({ authUser, isAdmin }: Props) {
             }
 
             return (
-              <View key={item.id} style={styles.productCard}>
+              <Pressable
+                key={item.id}
+                style={[styles.productCard, { width: cardWidth }]}
+                onPress={() => onSelectProduct?.(product)}
+              >
                 {product.imageDataUrl ? (
                   <Image source={{ uri: product.imageDataUrl }} style={styles.image} resizeMode="cover" />
                 ) : (
@@ -119,8 +140,10 @@ export function MyStoreScreen({ authUser, isAdmin }: Props) {
                 )}
 
                 <Text style={styles.productName}>{product.name}</Text>
+                <Text style={styles.productPrice}>${(product.price ?? 0).toFixed(2)}</Text>
                 {!!product.description && <Text style={styles.productDescription}>{product.description}</Text>}
-              </View>
+                <Text style={styles.productOwner}>By {product.creatorUsername}</Text>
+              </Pressable>
             );
           })
         )}
@@ -150,6 +173,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingBottom: 130,
     gap: 10,
+  },
+  contentWrapAdmin: {
+    flexDirection: 'column',
+  },
+  contentWrapFreelancer: {
+    alignItems: 'flex-start',
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    columnGap: 10,
+    rowGap: 10,
   },
   emptyCard: {
     borderRadius: 16,
@@ -207,19 +240,25 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   productCard: {
-    borderRadius: 16,
+    borderRadius: 18,
     backgroundColor: '#ffffff',
-    padding: 12,
+    padding: 10,
+    minHeight: 212,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.1,
+    shadowRadius: 16,
+    elevation: 6,
   },
   image: {
     width: '100%',
-    height: 190,
+    height: 86,
     borderRadius: 12,
     backgroundColor: '#eef2f8',
   },
   imageFallback: {
     width: '100%',
-    height: 190,
+    height: 86,
     borderRadius: 12,
     backgroundColor: '#eef2f8',
     alignItems: 'center',
@@ -227,13 +266,25 @@ const styles = StyleSheet.create({
   },
   productName: {
     marginTop: 8,
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '800',
     color: '#23314f',
+  },
+  productPrice: {
+    marginTop: 4,
+    color: '#0f766e',
+    fontWeight: '800',
+    fontSize: 14,
   },
   productDescription: {
     marginTop: 4,
     color: '#52617c',
-    fontSize: 13,
+    fontSize: 12,
+    lineHeight: 16,
+  },
+  productOwner: {
+    marginTop: 4,
+    fontSize: 11,
+    color: '#6b7a93',
   },
 });

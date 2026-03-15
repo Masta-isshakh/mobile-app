@@ -4,6 +4,8 @@ import { auth } from './auth/resource';
 import { data } from './data/resource';
 import { adminManagementFunction } from './functions/admin-management/resource';
 import { blockPublicSignUp } from './functions/block-public-sign-up/resource';
+import { paypalCheckoutFunction } from './functions/paypal-checkout/resource';
+import { stripeCheckoutFunction } from './functions/stripe-checkout/resource';
 
 /**
  * @see https://docs.amplify.aws/react/build-a-backend/ to add storage, functions, and more
@@ -13,6 +15,8 @@ const backend = defineBackend({
   data,
   adminManagementFunction,
   blockPublicSignUp,
+  paypalCheckoutFunction,
+  stripeCheckoutFunction,
 });
 
 backend.adminManagementFunction.addEnvironment('USER_POOL_ID', backend.auth.resources.userPool.userPoolId);

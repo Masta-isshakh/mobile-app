@@ -1,12 +1,16 @@
 import { StyleSheet, Text } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { StripeProvider } from '@stripe/stripe-react-native';
 import { authenticatorTextUtil } from '@aws-amplify/ui';
 import { Authenticator, type SignInProps } from '@aws-amplify/ui-react-native';
 import { DefaultContent } from '@aws-amplify/ui-react-native/lib/Authenticator/common';
 import { useFieldValues } from '@aws-amplify/ui-react-native/lib/Authenticator/hooks';
+import 'react-native-url-polyfill/auto';
 import { AppShell } from './src/AppShell';
 import { amplifyConfig } from './src/lib/amplifyClient';
 import { MissingConfigScreen } from './src/screens/MissingConfigScreen';
+
+const stripePublishableKey = process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? '';
 
 function LockedDownSignIn({
   fields,
@@ -59,17 +63,19 @@ function LockedDownSignIn({
 
 export default function App() {
   return (
-    <SafeAreaProvider>
-      {!amplifyConfig ? (
-        <MissingConfigScreen />
-      ) : (
-        <Authenticator.Provider>
-          <Authenticator components={{ SignIn: LockedDownSignIn }}>
-            <AppShell />
-          </Authenticator>
-        </Authenticator.Provider>
-      )}
-    </SafeAreaProvider>
+    <StripeProvider publishableKey={stripePublishableKey}>
+      <SafeAreaProvider>
+        {!amplifyConfig ? (
+          <MissingConfigScreen />
+        ) : (
+          <Authenticator.Provider>
+            <Authenticator components={{ SignIn: LockedDownSignIn }}>
+              <AppShell />
+            </Authenticator>
+          </Authenticator.Provider>
+        )}
+      </SafeAreaProvider>
+    </StripeProvider>
   );
 }
 

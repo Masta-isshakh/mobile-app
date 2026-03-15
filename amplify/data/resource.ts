@@ -1,5 +1,7 @@
 import { type ClientSchema, a, defineData } from '@aws-amplify/backend';
 import { adminManagementFunction } from '../functions/admin-management/resource';
+import { paypalCheckoutFunction } from '../functions/paypal-checkout/resource';
+import { stripeCheckoutFunction } from '../functions/stripe-checkout/resource';
 
 const schema = a.schema({
   Department: a
@@ -61,6 +63,7 @@ const schema = a.schema({
   ProductX: a
     .model({
       name: a.string().required(),
+      price: a.float().default(0),
       description: a.string(),
       imageDataUrl: a.string(),
       creatorSub: a.string().required(),
@@ -129,6 +132,57 @@ const schema = a.schema({
     )
     .authorization((allow) => [allow.groups(['ADMIN'])])
     .handler(a.handler.function(adminManagementFunction)),
+
+  createCheckoutSession: a
+    .mutation()
+    .arguments({
+      amountCents: a.integer().required(),
+      currency: a.string(),
+      customerEmail: a.string(),
+      orderSummary: a.string(),
+    })
+    .returns(
+      a.customType({
+        clientSecret: a.string(),
+        customerId: a.string(),
+        ephemeralKeySecret: a.string(),
+        paymentIntentId: a.string(),
+        publishableKey: a.string(),
+      }),
+    )
+    .authorization((allow) => [allow.groups(['ADMIN', 'FREELANCER'])])
+    .handler(a.handler.function(stripeCheckoutFunction)),
+
+  createPayPalOrder: a
+    .mutation()
+    .arguments({
+      amount: a.string().required(),
+      currency: a.string(),
+      orderSummary: a.string(),
+    })
+    .returns(
+      a.customType({
+        orderId: a.string(),
+        approvalUrl: a.string(),
+        status: a.string(),
+      }),
+    )
+    .authorization((allow) => [allow.groups(['ADMIN', 'FREELANCER'])])
+    .handler(a.handler.function(paypalCheckoutFunction)),
+
+  capturePayPalOrder: a
+    .mutation()
+    .arguments({
+      orderId: a.string().required(),
+    })
+    .returns(
+      a.customType({
+        orderId: a.string(),
+        status: a.string(),
+      }),
+    )
+    .authorization((allow) => [allow.groups(['ADMIN', 'FREELANCER'])])
+    .handler(a.handler.function(paypalCheckoutFunction)),
 });
 
 export type Schema = ClientSchema<typeof schema>;

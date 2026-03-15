@@ -1,6 +1,6 @@
 import type { ComponentProps } from 'react';
 import { Ionicons } from '@expo/vector-icons';
-import { Dimensions, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Dimensions, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { BottomTabItem } from '../types';
 
@@ -18,7 +18,9 @@ type Props = {
 
 export function BottomTabNavigation({ tabs, current, onChange }: Props) {
   const insets = useSafeAreaInsets();
-  const bottomPadding = Math.max(insets.bottom + (Platform.OS === 'android' ? 18 : 10), 22);
+  // SafeAreaView in parent layouts excludes the bottom edge, so this component
+  // owns the bottom inset. Use a small buffer to sit flush near the screen edge.
+  const bottomPadding = Math.max(insets.bottom + 8, 14);
 
   return (
     <View style={[styles.outerWrap, { paddingBottom: bottomPadding }]}>

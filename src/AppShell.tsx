@@ -31,22 +31,67 @@ export function AppShell() {
     try {
       const session = await fetchAuthSession();
       const tokenPayload = session.tokens?.idToken?.payload as
-        | { 'cognito:groups'?: string[]; sub?: string }
+        | {
+            'cognito:groups'?: string[];
+            'cognito:username'?: string;
+            sub?: string;
+            email?: string;
+            preferred_username?: string;
+          }
         | undefined;
       const groups = tokenPayload?.['cognito:groups'] ?? [];
       const isAdminGroup = groups.includes('ADMIN');
 
       const currentUser = await getCurrentUser();
+      const preferredFromToken = tokenPayload?.preferred_username?.trim() || '';
+      const emailFromToken = tokenPayload?.email?.trim().toLowerCase() || '';
+      const cognitoUsername = tokenPayload?.['cognito:username']?.trim() || currentUser.username;
+
+      let currentProfile: AppUser | null = null;
+
+      if (preferredFromToken) {
+        const byPreferred = await client.models.AppUser.list({
+          filter: { username: { eq: preferredFromToken } },
+        });
+        currentProfile = (byPreferred.data?.[0] ?? null) as AppUser | null;
+      }
+
+      if (!currentProfile && emailFromToken) {
+        const byEmail = await client.models.AppUser.list({
+          filter: { email: { eq: emailFromToken } },
+        });
+        currentProfile = (byEmail.data?.[0] ?? null) as AppUser | null;
+      }
+
+      if (!currentProfile && cognitoUsername) {
+        const byCognitoUsername = await client.models.AppUser.list({
+          filter: { cognitoUsername: { eq: cognitoUsername } },
+        });
+        currentProfile = (byCognitoUsername.data?.[0] ?? null) as AppUser | null;
+      }
+
+      const preferredUsername =
+        currentProfile?.username?.trim() || preferredFromToken || currentUser.username;
+
       const authUser: AuthUserContext = {
         sub: tokenPayload?.sub ?? '',
-        username: currentUser.username,
+        username: preferredUsername,
+        email: emailFromToken || currentProfile?.email || undefined,
+        cognitoUsername,
       };
 
-      const usersResponse = await client.models.AppUser.list({
-        filter: { username: { eq: currentUser.username } },
-      });
-
-      const currentProfile = (usersResponse.data?.[0] ?? null) as AppUser | null;
+      if (currentProfile?.id) {
+        const shouldUpdateUsername = currentProfile.username !== preferredUsername;
+        const shouldUpdateOwnerSub = authUser.sub && currentProfile.ownerSub !== authUser.sub;
+        if (shouldUpdateUsername || shouldUpdateOwnerSub) {
+          const updated = await client.models.AppUser.update({
+            id: currentProfile.id,
+            username: preferredUsername,
+            ownerSub: shouldUpdateOwnerSub ? authUser.sub : currentProfile.ownerSub ?? undefined,
+          });
+          currentProfile = (updated.data ?? currentProfile) as AppUser;
+        }
+      }
 
       let permissionKeys = new Set<string>();
       if (currentProfile?.id) {

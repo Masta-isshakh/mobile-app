@@ -108,7 +108,7 @@ export function UserManagementScreen({ can }: Props) {
     }
 
     if (!inviteUsername.trim() || !inviteEmail.trim()) {
-      setMessage('Username and email are required.');
+      setMessage('Preferred username and email are required.');
       return;
     }
 
@@ -289,7 +289,7 @@ export function UserManagementScreen({ can }: Props) {
         <TextInput
           style={styles.input}
           value={inviteUsername}
-          placeholder="Username"
+          placeholder="Preferred username (First Last)"
           onChangeText={setInviteUsername}
         />
         <TextInput
@@ -340,7 +340,7 @@ export function UserManagementScreen({ can }: Props) {
           <TextInput
             style={styles.input}
             value={editing.username}
-            placeholder="Username"
+            placeholder="Preferred username"
             onChangeText={(value) => setEditing((prev) => (prev ? { ...prev, username: value } : prev))}
           />
           <TextInput

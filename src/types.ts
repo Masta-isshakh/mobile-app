@@ -33,6 +33,7 @@ export type RolePolicy = {
 export type Product = {
   id: string;
   name: string;
+  price?: number | null;
   description?: string | null;
   imageDataUrl?: string | null;
   creatorSub: string;
@@ -57,6 +58,8 @@ export type ProductRating = {
 export type AuthUserContext = {
   sub: string;
   username: string;
+  email?: string;
+  cognitoUsername?: string;
 };
 
 export type PermissionCheck = (resource: string, action: string) => boolean;

@@ -1,13 +1,14 @@
-import { useMemo, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useCallback, useMemo, useState } from 'react';
+import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { AppHeader } from '../components/AppHeader';
 import { BottomTabNavigation } from '../components/BottomTabNavigation';
 import { DepartmentManagementScreen } from '../screens/admin/DepartmentManagementScreen';
 import { RolePolicyScreen } from '../screens/admin/RolePolicyScreen';
 import { UserManagementScreen } from '../screens/admin/UserManagementScreen';
-import { MyStoreScreen } from '../screens/products/MyStoreScreen';
-import { ProductCatalogScreen } from '../screens/products/ProductCatalogScreen';
-import type { AuthUserContext, BottomTabItem, PermissionCheck } from '../types';
+import { CartScreen, MyStoreScreen, ProductCatalogScreen, ProductDetailScreen } from '../screens/products';
+import { ProfileScreen } from '../screens/ProfileScreen';
+import type { AuthUserContext, BottomTabItem, PermissionCheck, Product } from '../types';
 
 type Props = {
   can: PermissionCheck;
@@ -26,6 +27,62 @@ export function AdminLayout({ can, authUser }: Props) {
   }, [can]);
 
   const [tab, setTab] = useState<string>('home');
+
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [cartVisible, setCartVisible] = useState(false);
+  const [cart, setCart] = useState<Map<string, { product: Product; quantity: number }>>(new Map());
+  const cartItems = useMemo(() => Array.from(cart.values()), [cart]);
+  const totalCartItems = useMemo(() => cartItems.reduce((sum, item) => sum + item.quantity, 0), [cartItems]);
+  const handleSelectProduct = useCallback((product: Product) => setSelectedProduct(product), []);
+  const handleAddToCart = useCallback((product: Product) => {
+    setCart((prev) => {
+      const next = new Map(prev);
+      const current = next.get(product.id);
+      next.set(product.id, {
+        product,
+        quantity: (current?.quantity ?? 0) + 1,
+      });
+      return next;
+    });
+  }, []);
+
+  const increaseCartQty = useCallback((productId: string) => {
+    setCart((prev) => {
+      const next = new Map(prev);
+      const current = next.get(productId);
+      if (!current) return prev;
+      next.set(productId, { ...current, quantity: current.quantity + 1 });
+      return next;
+    });
+  }, []);
+
+  const decreaseCartQty = useCallback((productId: string) => {
+    setCart((prev) => {
+      const next = new Map(prev);
+      const current = next.get(productId);
+      if (!current) return prev;
+      if (current.quantity <= 1) {
+        next.delete(productId);
+      } else {
+        next.set(productId, { ...current, quantity: current.quantity - 1 });
+      }
+      return next;
+    });
+  }, []);
+
+  const removeCartItem = useCallback((productId: string) => {
+    setCart((prev) => {
+      const next = new Map(prev);
+      next.delete(productId);
+      return next;
+    });
+  }, []);
+
+  const clearCart = useCallback(() => {
+    setCart(new Map());
+    setCartVisible(false);
+    setSelectedProduct(null);
+  }, []);
   const [settingsTab, setSettingsTab] = useState<'users' | 'departments' | 'roles'>('users');
 
   const currentTab = tabs.some((item) => item.key === tab) ? tab : 'home';
@@ -36,9 +93,21 @@ export function AdminLayout({ can, authUser }: Props) {
     { key: 'roles', label: 'Role Management' },
   ] as const;
 
-  return (
-    <SafeAreaView style={styles.container}>
+  const headerCopy = useMemo(() => {
+    if (currentTab === 'products') return { title: 'Product Control', subtitle: 'Create, edit, and publish products for the marketplace.' };
+    if (currentTab === 'store') return { title: 'Store Oversight', subtitle: 'Review every freelancer store from one dashboard.' };
+    if (currentTab === 'profile') return { title: 'Admin Profile', subtitle: 'Manage your identity, settings, and security.' };
+    if (currentTab === 'settings') return { title: 'Admin Settings', subtitle: 'Manage users, departments, and permissions.' };
+    return { title: `Welcome, ${authUser.username}`, subtitle: 'Your admin workspace is ready.' };
+  }, [authUser.username, currentTab]);
 
+  return (
+    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
+      <AppHeader
+        title={headerCopy.title}
+        subtitle={headerCopy.subtitle}
+        roleLabel="Admin"
+      />
 
       <View style={styles.content}>
         {currentTab === 'home' && (
@@ -49,18 +118,15 @@ export function AdminLayout({ can, authUser }: Props) {
         )}
 
         {currentTab === 'products' && (
-          <ProductCatalogScreen authUser={authUser} />
+          <ProductCatalogScreen authUser={authUser} isAdmin onSelectProduct={handleSelectProduct} />
         )}
 
         {currentTab === 'store' && (
-          <MyStoreScreen authUser={authUser} isAdmin />
+          <MyStoreScreen authUser={authUser} isAdmin onSelectProduct={handleSelectProduct} />
         )}
 
         {currentTab === 'profile' && (
-          <View style={styles.card}>
-            <Text style={styles.sectionTitle}>Profile</Text>
-            <Text style={styles.paragraph}>Profile preferences placeholder. Add profile controls here.</Text>
-          </View>
+          <ProfileScreen authUser={authUser} role="Admin" />
         )}
 
         {currentTab === 'settings' && (
@@ -95,6 +161,36 @@ export function AdminLayout({ can, authUser }: Props) {
       </View>
 
       <BottomTabNavigation tabs={tabs} current={currentTab} onChange={setTab} />
+
+      <Modal
+        visible={selectedProduct !== null}
+        animationType="slide"
+        onRequestClose={() => setSelectedProduct(null)}
+      >
+        {selectedProduct !== null && (
+          <ProductDetailScreen
+            product={selectedProduct}
+            authUser={authUser}
+            isAdmin
+            cartCount={totalCartItems}
+            onAddToCart={handleAddToCart}
+            onOpenCart={() => setCartVisible(true)}
+            onClose={() => setSelectedProduct(null)}
+          />
+        )}
+      </Modal>
+
+      <Modal visible={cartVisible} animationType="slide" onRequestClose={() => setCartVisible(false)}>
+        <CartScreen
+          authUser={authUser}
+          items={cartItems}
+          onIncrease={increaseCartQty}
+          onDecrease={decreaseCartQty}
+          onRemove={removeCartItem}
+          onCheckoutSuccess={clearCart}
+          onClose={() => setCartVisible(false)}
+        />
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -102,7 +198,6 @@ export function AdminLayout({ can, authUser }: Props) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    paddingTop: 16,
     backgroundColor: '#efe7ff',
   },
 

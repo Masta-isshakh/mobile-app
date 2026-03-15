@@ -1,14 +1,14 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { getCurrentUser } from 'aws-amplify/auth';
 import { client } from '../../lib/amplifyClient';
-import type { AppUser, PermissionCheck, Policy, RolePolicy, UserRole } from '../../types';
+import type { AppUser, AuthUserContext, PermissionCheck, Policy, RolePolicy, UserRole } from '../../types';
 
 type Props = {
   can: PermissionCheck;
+  authUser: AuthUserContext;
 };
 
-export function FreelancerScreen({ can }: Props) {
+export function FreelancerScreen({ can, authUser }: Props) {
   const [profile, setProfile] = useState<AppUser | null>(null);
   const [policies, setPolicies] = useState<Policy[]>([]);
   const [loading, setLoading] = useState(true);
@@ -18,11 +18,29 @@ export function FreelancerScreen({ can }: Props) {
 
   const loadData = useCallback(async () => {
     try {
-      const user = await getCurrentUser();
-      const usersResponse = await client.models.AppUser.list({
-        filter: { username: { eq: user.username } },
-      });
-      const currentProfile = usersResponse.data?.[0] ?? null;
+      let currentProfile: AppUser | null = null;
+
+      if (authUser.username) {
+        const byPreferred = await client.models.AppUser.list({
+          filter: { username: { eq: authUser.username } },
+        });
+        currentProfile = (byPreferred.data?.[0] ?? null) as AppUser | null;
+      }
+
+      if (!currentProfile && authUser.email) {
+        const byEmail = await client.models.AppUser.list({
+          filter: { email: { eq: authUser.email.toLowerCase() } },
+        });
+        currentProfile = (byEmail.data?.[0] ?? null) as AppUser | null;
+      }
+
+      if (!currentProfile && authUser.cognitoUsername) {
+        const byCognitoUsername = await client.models.AppUser.list({
+          filter: { cognitoUsername: { eq: authUser.cognitoUsername } },
+        });
+        currentProfile = (byCognitoUsername.data?.[0] ?? null) as AppUser | null;
+      }
+
       setProfile(currentProfile);
 
       if (!currentProfile?.id) {
@@ -50,7 +68,7 @@ export function FreelancerScreen({ can }: Props) {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [authUser.cognitoUsername, authUser.email, authUser.username]);
 
   useEffect(() => {
     loadData().catch((caughtError: unknown) => {
@@ -105,7 +123,7 @@ export function FreelancerScreen({ can }: Props) {
 
         <View style={styles.card}>
           <Text style={styles.sectionTitle}>Profile</Text>
-          <Text style={styles.metaText}>Username: {profile?.username ?? '-'}</Text>
+          <Text style={styles.metaText}>Preferred Username: {profile?.username ?? authUser.username ?? '-'}</Text>
           <Text style={styles.metaText}>Email: {profile?.email ?? '-'}</Text>
           <Text style={styles.metaText}>Status: {profile?.status ?? '-'}</Text>
         </View>

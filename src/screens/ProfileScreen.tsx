@@ -16,6 +16,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuthenticator } from '@aws-amplify/ui-react-native';
+import { useAppTheme } from '../theme/AppThemeContext';
 import type { AuthUserContext } from '../types';
 
 type IoniconName = ComponentProps<typeof Ionicons>['name'];
@@ -67,6 +68,7 @@ function getInitials(name: string): string {
 
 export function ProfileScreen({ authUser, role }: Props) {
   const { signOut } = useAuthenticator();
+  const { colors: appThemeColors, isDarkMode, setIsDarkMode } = useAppTheme();
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState<ProfileStats>({
     products: 0,
@@ -83,29 +85,17 @@ export function ProfileScreen({ authUser, role }: Props) {
   const storageKey = `profile_prefs_${authUser.sub || authUser.username}`;
 
   const colors = useMemo(
-    () =>
-      prefs.darkMode
-        ? {
-            root: '#1f1933',
-            card: '#2a2342',
-            label: '#d6ccff',
-            text: '#f5f3ff',
-            muted: '#c6bcf0',
-            divider: '#3a3260',
-            iconBg: '#3a3260',
-            icon: '#c4b5fd',
-          }
-        : {
-            root: '#f3eeff',
-            card: '#ffffff',
-            label: '#7c3aed',
-            text: '#1e1b4b',
-            muted: '#6b7280',
-            divider: '#f3f4f6',
-            iconBg: '#f5f0ff',
-            icon: '#7c3aed',
-          },
-    [prefs.darkMode],
+    () => ({
+      root: appThemeColors.background,
+      card: appThemeColors.surface,
+      label: appThemeColors.primary,
+      text: appThemeColors.text,
+      muted: appThemeColors.textMuted,
+      divider: appThemeColors.border,
+      iconBg: appThemeColors.surfaceMuted,
+      icon: appThemeColors.primary,
+    }),
+    [appThemeColors],
   );
 
   const persistPreferences = useCallback(
@@ -127,9 +117,12 @@ export function ProfileScreen({ authUser, role }: Props) {
         const raw = await AsyncStorage.getItem(storageKey);
         if (raw && mounted) {
           const parsed = JSON.parse(raw) as Partial<ProfilePreferences>;
+          if (parsed.darkMode !== undefined) {
+            setIsDarkMode(parsed.darkMode);
+          }
           setPrefs({
             notificationsEnabled: parsed.notificationsEnabled ?? DEFAULT_PREFERENCES.notificationsEnabled,
-            darkMode: parsed.darkMode ?? DEFAULT_PREFERENCES.darkMode,
+            darkMode: parsed.darkMode ?? isDarkMode,
             language: parsed.language ?? DEFAULT_PREFERENCES.language,
           });
         }
@@ -171,7 +164,11 @@ export function ProfileScreen({ authUser, role }: Props) {
     return () => {
       mounted = false;
     };
-  }, [authUser.sub, role, storageKey]);
+  }, [authUser.sub, isDarkMode, role, setIsDarkMode, storageKey]);
+
+  useEffect(() => {
+    setPrefs((previous) => ({ ...previous, darkMode: isDarkMode }));
+  }, [isDarkMode]);
 
   const updatePreferences = useCallback(
     (next: ProfilePreferences) => {
@@ -351,12 +348,19 @@ export function ProfileScreen({ authUser, role }: Props) {
           textColor={colors.text}
           mutedColor={colors.muted}
           label="Dark Mode"
-          value={prefs.darkMode ? 'On' : 'Off'}
-          onPress={() => updatePreferences({ ...prefs, darkMode: !prefs.darkMode })}
+          value={isDarkMode ? 'On' : 'Off'}
+          onPress={() => {
+            const next = !isDarkMode;
+            setIsDarkMode(next);
+            updatePreferences({ ...prefs, darkMode: next });
+          }}
           trailing={
             <Switch
-              value={prefs.darkMode}
-              onValueChange={(value) => updatePreferences({ ...prefs, darkMode: value })}
+              value={isDarkMode}
+              onValueChange={(value) => {
+                setIsDarkMode(value);
+                updatePreferences({ ...prefs, darkMode: value });
+              }}
             />
           }
         />

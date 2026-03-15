@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 import { DropdownSelect } from '../../components/DropdownSelect';
+import { SuccessPopup } from '../../components/SuccessPopup';
 import { POLICY_CATALOG } from '../../constants/policyCatalog';
 import { client } from '../../lib/amplifyClient';
 import type { Department, PermissionCheck, Policy, Role, RolePolicy } from '../../types';
@@ -21,6 +22,10 @@ export function RolePolicyScreen({ can }: Props) {
   const [newPolicyResource, setNewPolicyResource] = useState('');
   const [newPolicyAction, setNewPolicyAction] = useState('');
   const [message, setMessage] = useState('');
+  const [isCreatingRole, setIsCreatingRole] = useState(false);
+  const [isCreatingPolicy, setIsCreatingPolicy] = useState(false);
+  const [isTogglingPolicy, setIsTogglingPolicy] = useState(false);
+  const [successPopup, setSuccessPopup] = useState({ visible: false, title: '', description: '' });
 
   const policyByResourceAction = useMemo(() => {
     const map = new Map<string, Policy>();
@@ -122,15 +127,21 @@ export function RolePolicyScreen({ can }: Props) {
       return;
     }
 
-    await client.models.Role.create({
-      name: newRoleName.trim(),
-      departmentId: newRoleDepartmentId,
-      isActive: true,
-    });
-    setNewRoleName('');
-    setNewRoleDepartmentId('');
-    setMessage('Role created.');
-    await loadData();
+    setIsCreatingRole(true);
+    try {
+      await client.models.Role.create({
+        name: newRoleName.trim(),
+        departmentId: newRoleDepartmentId,
+        isActive: true,
+      });
+      setNewRoleName('');
+      setNewRoleDepartmentId('');
+      setMessage('Role created.');
+      setSuccessPopup({ visible: true, title: 'Role Created', description: 'The role has been created successfully.' });
+      await loadData();
+    } finally {
+      setIsCreatingRole(false);
+    }
   }, [can, loadData, newRoleDepartmentId, newRoleName]);
 
   const createPolicy = useCallback(async () => {
@@ -143,17 +154,23 @@ export function RolePolicyScreen({ can }: Props) {
       return;
     }
 
-    await client.models.Policy.create({
-      name: newPolicyName.trim(),
-      resource: newPolicyResource.trim(),
-      action: newPolicyAction.trim(),
-    });
+    setIsCreatingPolicy(true);
+    try {
+      await client.models.Policy.create({
+        name: newPolicyName.trim(),
+        resource: newPolicyResource.trim(),
+        action: newPolicyAction.trim(),
+      });
 
-    setNewPolicyName('');
-    setNewPolicyResource('');
-    setNewPolicyAction('');
-    setMessage('Policy created.');
-    await loadData();
+      setNewPolicyName('');
+      setNewPolicyResource('');
+      setNewPolicyAction('');
+      setMessage('Policy created.');
+      setSuccessPopup({ visible: true, title: 'Policy Created', description: 'The policy has been created successfully.' });
+      await loadData();
+    } finally {
+      setIsCreatingPolicy(false);
+    }
   }, [can, loadData, newPolicyAction, newPolicyName, newPolicyResource]);
 
   const setPolicyToggle = useCallback(
@@ -167,21 +184,27 @@ export function RolePolicyScreen({ can }: Props) {
         return;
       }
 
-      const existing = rolePolicyByPolicyId.get(policyId);
-      if (!existing) {
-        await client.models.RolePolicy.create({
-          roleId: selectedRoleId,
-          policyId,
-          effect: enabled ? 'ALLOW' : 'DENY',
-        });
-      } else {
-        await client.models.RolePolicy.update({
-          id: existing.id,
-          effect: enabled ? 'ALLOW' : 'DENY',
-        });
-      }
+      setIsTogglingPolicy(true);
+      try {
+        const existing = rolePolicyByPolicyId.get(policyId);
+        if (!existing) {
+          await client.models.RolePolicy.create({
+            roleId: selectedRoleId,
+            policyId,
+            effect: enabled ? 'ALLOW' : 'DENY',
+          });
+        } else {
+          await client.models.RolePolicy.update({
+            id: existing.id,
+            effect: enabled ? 'ALLOW' : 'DENY',
+          });
+        }
 
-      await loadData();
+        setSuccessPopup({ visible: true, title: 'Access Updated', description: 'Role policy toggle has been updated.' });
+        await loadData();
+      } finally {
+        setIsTogglingPolicy(false);
+      }
     },
     [can, loadData, rolePolicyByPolicyId, selectedRoleId],
   );
@@ -230,9 +253,9 @@ export function RolePolicyScreen({ can }: Props) {
         <Pressable
           style={[styles.primaryButton, !can('roles', 'create') ? styles.buttonDisabled : undefined]}
           onPress={() => void createRole()}
-          disabled={!can('roles', 'create')}
+          disabled={!can('roles', 'create') || isCreatingRole}
         >
-          <Text style={styles.primaryButtonText}>Create Role</Text>
+          <Text style={styles.primaryButtonText}>{isCreatingRole ? 'Creating...' : 'Create Role'}</Text>
         </Pressable>
       </View>
 
@@ -259,9 +282,9 @@ export function RolePolicyScreen({ can }: Props) {
         <Pressable
           style={[styles.primaryButton, !can('policies', 'create') ? styles.buttonDisabled : undefined]}
           onPress={() => void createPolicy()}
-          disabled={!can('policies', 'create')}
+          disabled={!can('policies', 'create') || isCreatingPolicy}
         >
-          <Text style={styles.primaryButtonText}>Create Policy</Text>
+          <Text style={styles.primaryButtonText}>{isCreatingPolicy ? 'Creating...' : 'Create Policy'}</Text>
         </Pressable>
       </View>
 
@@ -286,7 +309,7 @@ export function RolePolicyScreen({ can }: Props) {
                   </View>
                   <Switch
                     value={enabled}
-                    disabled={!policy || !selectedRoleId || !can('rolePolicies', 'toggle')}
+                    disabled={!policy || !selectedRoleId || !can('rolePolicies', 'toggle') || isTogglingPolicy}
                     onValueChange={(next) => {
                       if (!policy) {
                         return;
@@ -304,6 +327,13 @@ export function RolePolicyScreen({ can }: Props) {
       </View>
 
       {!!message && <Text style={styles.message}>{message}</Text>}
+
+      <SuccessPopup
+        visible={successPopup.visible}
+        title={successPopup.title}
+        description={successPopup.description}
+        onClose={() => setSuccessPopup({ visible: false, title: '', description: '' })}
+      />
     </ScrollView>
   );
 }

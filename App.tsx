@@ -9,6 +9,7 @@ import 'react-native-url-polyfill/auto';
 import { AppShell } from './src/AppShell';
 import { amplifyConfig } from './src/lib/amplifyClient';
 import { MissingConfigScreen } from './src/screens/MissingConfigScreen';
+import { AppThemeProvider } from './src/theme/AppThemeContext';
 
 const stripePublishableKey = process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? '';
 
@@ -65,15 +66,17 @@ export default function App() {
   return (
     <StripeProvider publishableKey={stripePublishableKey}>
       <SafeAreaProvider>
-        {!amplifyConfig ? (
-          <MissingConfigScreen />
-        ) : (
-          <Authenticator.Provider>
-            <Authenticator components={{ SignIn: LockedDownSignIn }}>
-              <AppShell />
-            </Authenticator>
-          </Authenticator.Provider>
-        )}
+        <AppThemeProvider>
+          {!amplifyConfig ? (
+            <MissingConfigScreen />
+          ) : (
+            <Authenticator.Provider>
+              <Authenticator components={{ SignIn: LockedDownSignIn }}>
+                <AppShell />
+              </Authenticator>
+            </Authenticator.Provider>
+          )}
+        </AppThemeProvider>
       </SafeAreaProvider>
     </StripeProvider>
   );

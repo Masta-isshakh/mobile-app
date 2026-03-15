@@ -2,6 +2,7 @@ import type { ComponentProps } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import { Dimensions, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useAppTheme } from '../theme/AppThemeContext';
 import type { BottomTabItem } from '../types';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -18,13 +19,14 @@ type Props = {
 
 export function BottomTabNavigation({ tabs, current, onChange }: Props) {
   const insets = useSafeAreaInsets();
+  const { isDarkMode } = useAppTheme();
   // SafeAreaView in parent layouts excludes the bottom edge, so this component
   // owns the bottom inset. Use a small buffer to sit flush near the screen edge.
   const bottomPadding = Math.max(insets.bottom + 8, 14);
 
   return (
     <View style={[styles.outerWrap, { paddingBottom: bottomPadding }]}>
-      <View style={[styles.tabWrap, { maxWidth: TAB_MAX_WIDTH }]}> 
+      <View style={[styles.tabWrap, isDarkMode ? styles.tabWrapDark : undefined, { maxWidth: TAB_MAX_WIDTH }]}> 
         {tabs.map((tab) => {
           const active = current === tab.key;
           const baseIcon = tab.icon ?? 'ellipse';
@@ -35,14 +37,30 @@ export function BottomTabNavigation({ tabs, current, onChange }: Props) {
               onPress={() => onChange(tab.key)}
               style={styles.tabButton}
             >
-              <View style={[styles.iconBubble, active ? styles.iconBubbleActive : undefined]}>
+              <View
+                style={[
+                  styles.iconBubble,
+                  isDarkMode ? styles.iconBubbleDark : undefined,
+                  active ? styles.iconBubbleActive : undefined,
+                  active && isDarkMode ? styles.iconBubbleActiveDark : undefined,
+                ]}
+              >
                 <Ionicons
                   name={iconName}
                   size={ICON_SIZE}
-                  color={active ? '#8b3cf6' : '#6b7280'}
+                  color={active ? (isDarkMode ? '#c4b5fd' : '#8b3cf6') : isDarkMode ? '#cbd5e1' : '#6b7280'}
                 />
               </View>
-              <Text style={[styles.tabTitle, active ? styles.tabTitleActive : undefined]}>{tab.label}</Text>
+              <Text
+                style={[
+                  styles.tabTitle,
+                  isDarkMode ? styles.tabTitleDark : undefined,
+                  active ? styles.tabTitleActive : undefined,
+                  active && isDarkMode ? styles.tabTitleActiveDark : undefined,
+                ]}
+              >
+                {tab.label}
+              </Text>
             </Pressable>
           );
         })}
@@ -71,6 +89,9 @@ const styles = StyleSheet.create({
     shadowRadius: 16,
     elevation: 10,
   },
+  tabWrapDark: {
+    backgroundColor: '#1e2138',
+  },
   tabButton: {
     flex: 1,
     borderRadius: 16,
@@ -87,16 +108,28 @@ const styles = StyleSheet.create({
     backgroundColor: '#f3f4f6',
     marginBottom: 4,
   },
+  iconBubbleDark: {
+    backgroundColor: '#303657',
+  },
   iconBubbleActive: {
     backgroundColor: '#efe4ff',
+  },
+  iconBubbleActiveDark: {
+    backgroundColor: '#3c2c68',
   },
   tabTitle: {
     fontSize: 11,
     fontWeight: '600',
     color: '#6b7280',
   },
+  tabTitleDark: {
+    color: '#d0d5ea',
+  },
   tabTitleActive: {
     color: '#7c3aed',
     fontWeight: '800',
+  },
+  tabTitleActiveDark: {
+    color: '#c4b5fd',
   },
 });

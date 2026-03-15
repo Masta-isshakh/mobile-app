@@ -1,8 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Ionicons } from '@expo/vector-icons';
-import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { SuccessPopup } from '../../components/SuccessPopup';
 import { client } from '../../lib/amplifyClient';
+import { useAppTheme } from '../../theme/AppThemeContext';
+import { formatQar } from '../../utils/currency';
 import type { AuthUserContext, Product, ProductRating } from '../../types';
 
 type Props = {
@@ -40,10 +43,14 @@ export function ProductDetailScreen({
   onOpenCart,
   onClose,
 }: Props) {
+  const { colors } = useAppTheme();
   const [ratings, setRatings] = useState<ProductRating[]>([]);
   const [isInStore, setIsInStore] = useState(false);
   const [message, setMessage] = useState('');
   const [addedFeedback, setAddedFeedback] = useState(false);
+  const [isRatingLoading, setIsRatingLoading] = useState(false);
+  const [isStoreLoading, setIsStoreLoading] = useState(false);
+  const [successPopup, setSuccessPopup] = useState({ visible: false, title: '', description: '' });
 
   const loadData = useCallback(async () => {
     const [ratingsRes, storeRes] = await Promise.all([
@@ -66,6 +73,7 @@ export function ProductDetailScreen({
 
   const handleRate = useCallback(
     async (score: number) => {
+      setIsRatingLoading(true);
       const existing = ratings.find((r) => r.userSub === authUser.sub);
       try {
         if (existing) {
@@ -78,8 +86,15 @@ export function ProductDetailScreen({
           });
         }
         await loadData();
+        setSuccessPopup({
+          visible: true,
+          title: 'Rating Saved',
+          description: 'Your rating was updated successfully.',
+        });
       } catch (e: unknown) {
         setMessage((e as Error).message);
+      } finally {
+        setIsRatingLoading(false);
       }
     },
     [authUser.sub, loadData, product.id, ratings],
@@ -89,6 +104,7 @@ export function ProductDetailScreen({
     if (isInStore || isAdmin) {
       return;
     }
+    setIsStoreLoading(true);
     try {
       await client.models.StoreProduct.create({
         productId: product.id,
@@ -97,8 +113,15 @@ export function ProductDetailScreen({
       });
       setIsInStore(true);
       setMessage('Added to your store.');
+      setSuccessPopup({
+        visible: true,
+        title: 'Added To Store',
+        description: 'This product is now in your store.',
+      });
     } catch (e: unknown) {
       setMessage((e as Error).message);
+    } finally {
+      setIsStoreLoading(false);
     }
   }, [authUser.sub, authUser.username, isAdmin, isInStore, product.id]);
 
@@ -109,7 +132,7 @@ export function ProductDetailScreen({
   }, [onAddToCart, product]);
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}> 
       <View style={styles.header}>
         <Pressable onPress={onClose} style={styles.backButton} hitSlop={8}>
           <Ionicons name="arrow-back" size={22} color="#23314f" />
@@ -138,9 +161,9 @@ export function ProductDetailScreen({
 
         <View style={styles.infoCard}>
           <Text style={styles.productName}>{product.name}</Text>
-          <Text style={styles.productPrice}>${(product.price ?? 0).toFixed(2)}</Text>
+          <Text style={styles.productPrice}>{formatQar(product.price ?? 0)}</Text>
           {!!product.description && <Text style={styles.productDesc}>{product.description}</Text>}
-          <Text style={styles.creatorText}>By {product.creatorUsername}</Text>
+          {isAdmin && <Text style={styles.creatorText}>By {product.creatorUsername}</Text>}
         </View>
 
         <View style={styles.section}>
@@ -156,7 +179,14 @@ export function ProductDetailScreen({
             <Text style={styles.muted}>No ratings yet. Be the first!</Text>
           )}
           <Text style={styles.sectionSubtitle}>Your rating</Text>
-          <StarRow value={userRating} onChange={(s) => void handleRate(s)} size={26} />
+          {isRatingLoading ? (
+            <View style={styles.ratingLoaderWrap}>
+              <ActivityIndicator size="small" color={colors.primary} />
+              <Text style={styles.ratingLoaderText}>Saving rating...</Text>
+            </View>
+          ) : (
+            <StarRow value={userRating} onChange={(s) => void handleRate(s)} size={26} />
+          )}
         </View>
 
         {!!message && <Text style={styles.message}>{message}</Text>}
@@ -173,15 +203,24 @@ export function ProductDetailScreen({
           {!isAdmin && (
             <Pressable
               style={[styles.storeButton, isInStore ? styles.storeButtonDisabled : undefined]}
-              disabled={isInStore}
+              disabled={isInStore || isStoreLoading}
               onPress={() => void handleAddToStore()}
             >
               <Ionicons name="storefront-outline" size={20} color="#fff" />
-              <Text style={styles.storeButtonText}>{isInStore ? 'Already in My Store' : 'Add to My Store'}</Text>
+              <Text style={styles.storeButtonText}>
+                {isInStore ? 'Already in My Store' : isStoreLoading ? 'Adding...' : 'Add to My Store'}
+              </Text>
             </Pressable>
           )}
         </View>
       </ScrollView>
+
+      <SuccessPopup
+        visible={successPopup.visible}
+        title={successPopup.title}
+        description={successPopup.description}
+        onClose={() => setSuccessPopup({ visible: false, title: '', description: '' })}
+      />
     </SafeAreaView>
   );
 }
@@ -270,4 +309,14 @@ const styles = StyleSheet.create({
   },
   storeButtonDisabled: { backgroundColor: '#94a3b8' },
   storeButtonText: { color: '#ffffff', fontWeight: '700', fontSize: 14 },
+  ratingLoaderWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  ratingLoaderText: {
+    color: '#52617c',
+    fontSize: 12,
+    fontWeight: '600',
+  },
 });

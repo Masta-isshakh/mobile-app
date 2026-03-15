@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Ionicons } from '@expo/vector-icons';
-import { Image, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { client } from '../../lib/amplifyClient';
+import { useAppTheme } from '../../theme/AppThemeContext';
+import { formatQar } from '../../utils/currency';
 import type { AuthUserContext, Product, StoreProduct } from '../../types';
 
 type Props = {
@@ -11,24 +13,31 @@ type Props = {
 };
 
 export function MyStoreScreen({ authUser, isAdmin, onSelectProduct }: Props) {
+  const { colors } = useAppTheme();
   const [products, setProducts] = useState<Product[]>([]);
   const [storeItems, setStoreItems] = useState<StoreProduct[]>([]);
   const [message, setMessage] = useState('');
+  const [isLoading, setIsLoading] = useState(true);
   const { width: windowWidth } = useWindowDimensions();
   const cardGap = 10;
   const horizontalPadding = 24;
   const cardWidth = Math.max(Math.floor((windowWidth - horizontalPadding - cardGap) / 2), 150);
 
   const loadData = useCallback(async () => {
-    const [productsResponse, storeResponse] = await Promise.all([
-      client.models.ProductX.list(),
-      isAdmin
-        ? client.models.StoreProduct.list()
-        : client.models.StoreProduct.list({ filter: { ownerSub: { eq: authUser.sub } } }),
-    ]);
+    setIsLoading(true);
+    try {
+      const [productsResponse, storeResponse] = await Promise.all([
+        client.models.ProductX.list(),
+        isAdmin
+          ? client.models.StoreProduct.list()
+          : client.models.StoreProduct.list({ filter: { ownerSub: { eq: authUser.sub } } }),
+      ]);
 
-    setProducts((productsResponse.data ?? []) as Product[]);
-    setStoreItems((storeResponse.data ?? []) as StoreProduct[]);
+      setProducts((productsResponse.data ?? []) as Product[]);
+      setStoreItems((storeResponse.data ?? []) as StoreProduct[]);
+    } finally {
+      setIsLoading(false);
+    }
   }, [authUser.sub, isAdmin]);
 
   useEffect(() => {
@@ -55,11 +64,18 @@ export function MyStoreScreen({ authUser, isAdmin, onSelectProduct }: Props) {
   }, [authUser.sub, storeItems]);
 
   return (
-    <View style={styles.wrap}>
-      <Text style={styles.title}>{isAdmin ? 'All User Stores' : 'My Store'}</Text>
+    <View style={[styles.wrap, { backgroundColor: colors.background }]}>
+      <Text style={[styles.title, { color: colors.text }]}>{isAdmin ? 'All User Stores' : 'My Store'}</Text>
       {!!message && <Text style={styles.message}>{message}</Text>}
 
-      <ScrollView
+      {isLoading && (
+        <View style={styles.loaderWrap}>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={[styles.loaderText, { color: colors.textMuted }]}>Loading store data...</Text>
+        </View>
+      )}
+
+      {!isLoading && <ScrollView
         contentContainerStyle={[
           styles.contentWrap,
           isAdmin ? styles.contentWrapAdmin : styles.contentWrapFreelancer,
@@ -67,7 +83,7 @@ export function MyStoreScreen({ authUser, isAdmin, onSelectProduct }: Props) {
       >
         {isAdmin ? (
           groupedByUser.length === 0 ? (
-            <View style={styles.emptyCard}>
+            <View style={[styles.emptyCard, { backgroundColor: colors.surface }]}> 
               <Text style={styles.emptyTitle}>No Store Items Yet</Text>
               <Text style={styles.emptyText}>When users add products to their store, you will see them here grouped by user.</Text>
             </View>
@@ -75,7 +91,7 @@ export function MyStoreScreen({ authUser, isAdmin, onSelectProduct }: Props) {
             groupedByUser.map(([key, items]) => {
               const ownerUsername = key;
               return (
-                <View key={key} style={styles.groupCard}>
+                <View key={key} style={[styles.groupCard, { backgroundColor: colors.surface }]}>
                   <Text style={styles.groupTitle}>{ownerUsername}</Text>
                   <Text style={styles.groupSubtitle}>
                     {items.length} product{items.length !== 1 ? 's' : ''}
@@ -103,7 +119,7 @@ export function MyStoreScreen({ authUser, isAdmin, onSelectProduct }: Props) {
 
                         <View style={styles.productMeta}>
                           <Text style={styles.productName}>{product.name}</Text>
-                          <Text style={styles.productPrice}>${(product.price ?? 0).toFixed(2)}</Text>
+                          <Text style={styles.productPrice}>{formatQar(product.price ?? 0)}</Text>
                           {!!product.description && <Text style={styles.productDescription}>{product.description}</Text>}
                         </View>
                       </Pressable>
@@ -114,7 +130,7 @@ export function MyStoreScreen({ authUser, isAdmin, onSelectProduct }: Props) {
             })
           )
         ) : ownItems.length === 0 ? (
-          <View style={styles.emptyCard}>
+          <View style={[styles.emptyCard, { backgroundColor: colors.surface }]}> 
             <Text style={styles.emptyTitle}>Your Store is Empty</Text>
             <Text style={styles.emptyText}>Add products from the Products tab to populate your store page.</Text>
           </View>
@@ -128,7 +144,7 @@ export function MyStoreScreen({ authUser, isAdmin, onSelectProduct }: Props) {
             return (
               <Pressable
                 key={item.id}
-                style={[styles.productCard, { width: cardWidth }]}
+                style={[styles.productCard, { width: cardWidth, backgroundColor: colors.surface }]}
                 onPress={() => onSelectProduct?.(product)}
               >
                 {product.imageDataUrl ? (
@@ -140,14 +156,14 @@ export function MyStoreScreen({ authUser, isAdmin, onSelectProduct }: Props) {
                 )}
 
                 <Text style={styles.productName}>{product.name}</Text>
-                <Text style={styles.productPrice}>${(product.price ?? 0).toFixed(2)}</Text>
+                <Text style={styles.productPrice}>{formatQar(product.price ?? 0)}</Text>
                 {!!product.description && <Text style={styles.productDescription}>{product.description}</Text>}
-                <Text style={styles.productOwner}>By {product.creatorUsername}</Text>
+                {isAdmin && <Text style={styles.productOwner}>By {product.creatorUsername}</Text>}
               </Pressable>
             );
           })
         )}
-      </ScrollView>
+      </ScrollView>}
     </View>
   );
 }
@@ -167,6 +183,15 @@ const styles = StyleSheet.create({
     marginHorizontal: 12,
     marginBottom: 8,
     color: '#9a3412',
+    fontWeight: '600',
+  },
+  loaderWrap: {
+    marginTop: 26,
+    alignItems: 'center',
+    gap: 10,
+  },
+  loaderText: {
+    fontSize: 14,
     fontWeight: '600',
   },
   contentWrap: {

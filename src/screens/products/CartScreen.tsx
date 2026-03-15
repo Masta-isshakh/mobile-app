@@ -3,7 +3,10 @@ import { Ionicons } from '@expo/vector-icons';
 import { useStripe } from '@stripe/stripe-react-native';
 import { Alert, Image, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { SuccessPopup } from '../../components/SuccessPopup';
 import { client } from '../../lib/amplifyClient';
+import { useAppTheme } from '../../theme/AppThemeContext';
+import { formatQar } from '../../utils/currency';
 import { PayPalCheckoutScreen } from './PayPalCheckoutScreen';
 import type { AuthUserContext, Product } from '../../types';
 
@@ -47,10 +50,12 @@ export function CartScreen({
   onCheckoutSuccess,
   onClose,
 }: Props) {
+  const { colors } = useAppTheme();
   const [checkoutMethod, setCheckoutMethod] = useState<CheckoutMethod>('stripe');
   const [isPaying, setIsPaying] = useState(false);
   const [payPalApprovalUrl, setPayPalApprovalUrl] = useState('');
   const [payPalOrderId, setPayPalOrderId] = useState('');
+  const [successPopup, setSuccessPopup] = useState({ visible: false, title: '', description: '' });
   const { initPaymentSheet, presentPaymentSheet } = useStripe();
 
   const subtotal = useMemo(
@@ -74,7 +79,7 @@ export function CartScreen({
     const customerEmail = authUser.email && authUser.email.includes('@') ? authUser.email : undefined;
     const response = (await client.mutations.createCheckoutSession({
       amountCents,
-      currency: 'usd',
+      currency: 'qar',
       customerEmail,
       orderSummary,
     })) as { data?: StripeCheckoutSessionPayload; errors?: Array<{ message?: string }> };
@@ -112,13 +117,17 @@ export function CartScreen({
     }
 
     onCheckoutSuccess();
-    Alert.alert('Payment successful', 'Your Stripe payment was processed and your cart has been cleared.');
+    setSuccessPopup({
+      visible: true,
+      title: 'Payment Successful',
+      description: 'Your Stripe payment was processed and your cart has been cleared.',
+    });
   }, [authUser.email, initPaymentSheet, onCheckoutSuccess, orderSummary, presentPaymentSheet, subtotal]);
 
   const handlePayPalCheckout = useCallback(async () => {
     const response = (await client.mutations.createPayPalOrder({
       amount: subtotal.toFixed(2),
-      currency: 'USD',
+      currency: 'QAR',
       orderSummary,
     })) as { data?: PayPalOrderPayload; errors?: Array<{ message?: string }> };
 
@@ -157,11 +166,15 @@ export function CartScreen({
   const handlePayPalSuccess = useCallback(() => {
     closePayPalModal();
     onCheckoutSuccess();
-    Alert.alert('Payment successful', 'Your PayPal payment was processed and your cart has been cleared.');
+    setSuccessPopup({
+      visible: true,
+      title: 'Payment Successful',
+      description: 'Your PayPal payment was processed and your cart has been cleared.',
+    });
   }, [closePayPalModal, onCheckoutSuccess]);
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
       <View style={styles.header}>
         <Pressable onPress={onClose} style={styles.headerBtn}>
           <Ionicons name="arrow-back" size={22} color="#23314f" />
@@ -212,9 +225,9 @@ export function CartScreen({
 
                 <View style={styles.itemMeta}>
                   <Text style={styles.itemName}>{item.product.name}</Text>
-                  <Text style={styles.itemPrice}>${(item.product.price ?? 0).toFixed(2)} each</Text>
+                  <Text style={styles.itemPrice}>{formatQar(item.product.price ?? 0)} each</Text>
                   <Text style={styles.itemLineTotal}>
-                    Line total: ${((item.product.price ?? 0) * item.quantity).toFixed(2)}
+                    Line total: {formatQar((item.product.price ?? 0) * item.quantity)}
                   </Text>
 
                   <View style={styles.qtyRow}>
@@ -239,7 +252,7 @@ export function CartScreen({
       <View style={styles.checkoutBar}>
         <View>
           <Text style={styles.checkoutLabel}>Subtotal</Text>
-          <Text style={styles.checkoutTotal}>${subtotal.toFixed(2)}</Text>
+          <Text style={styles.checkoutTotal}>{formatQar(subtotal)}</Text>
         </View>
 
         <Pressable
@@ -257,7 +270,7 @@ export function CartScreen({
       </View>
 
       <Text style={styles.checkoutHint}>
-        {checkoutMethod === 'stripe' ? 'Powered by Stripe test payments.' : 'Powered by PayPal sandbox checkout.'}
+        {checkoutMethod === 'stripe' ? 'Powered by Stripe test payments in QAR.' : 'Powered by PayPal sandbox checkout in QAR.'}
       </Text>
 
       <Modal visible={!!payPalApprovalUrl} animationType="slide" onRequestClose={closePayPalModal}>
@@ -270,6 +283,13 @@ export function CartScreen({
           />
         ) : null}
       </Modal>
+
+      <SuccessPopup
+        visible={successPopup.visible}
+        title={successPopup.title}
+        description={successPopup.description}
+        onClose={() => setSuccessPopup({ visible: false, title: '', description: '' })}
+      />
     </SafeAreaView>
   );
 }

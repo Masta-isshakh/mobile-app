@@ -6,6 +6,7 @@ import { BottomTabNavigation } from '../components/BottomTabNavigation';
 import { FreelancerScreen } from '../screens/freelancer/FreelancerScreen';
 import { CartScreen, MyStoreScreen, ProductCatalogScreen, ProductDetailScreen } from '../screens/products';
 import { ProfileScreen } from '../screens/ProfileScreen';
+import { useAppTheme } from '../theme/AppThemeContext';
 import type { AuthUserContext, BottomTabItem, PermissionCheck, Product } from '../types';
 
 type Props = {
@@ -14,6 +15,7 @@ type Props = {
 };
 
 export function FreelancerLayout({ can, authUser }: Props) {
+  const { colors } = useAppTheme();
   const tabs = useMemo<BottomTabItem[]>(() => {
     return [
       { key: 'home', label: 'Home', icon: 'home' },
@@ -91,7 +93,7 @@ export function FreelancerLayout({ can, authUser }: Props) {
   }, [authUser.username, tab]);
 
   return (
-    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top', 'left', 'right']}>
       <AppHeader
         title={headerCopy.title}
         subtitle={headerCopy.subtitle}
@@ -109,9 +111,9 @@ export function FreelancerLayout({ can, authUser }: Props) {
         )}
 
         {tab === 'settings' && (
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>Settings</Text>
-            <Text style={styles.cardText}>Account and notification settings can be managed here.</Text>
+          <View style={[styles.card, { backgroundColor: colors.surface }]}>
+            <Text style={[styles.cardTitle, { color: colors.text }]}>Settings</Text>
+            <Text style={[styles.cardText, { color: colors.textMuted }]}>Account and notification settings can be managed here.</Text>
           </View>
         )}
 

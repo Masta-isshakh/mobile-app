@@ -8,6 +8,7 @@ import { RolePolicyScreen } from '../screens/admin/RolePolicyScreen';
 import { UserManagementScreen } from '../screens/admin/UserManagementScreen';
 import { CartScreen, MyStoreScreen, ProductCatalogScreen, ProductDetailScreen } from '../screens/products';
 import { ProfileScreen } from '../screens/ProfileScreen';
+import { useAppTheme } from '../theme/AppThemeContext';
 import type { AuthUserContext, BottomTabItem, PermissionCheck, Product } from '../types';
 
 type Props = {
@@ -16,6 +17,7 @@ type Props = {
 };
 
 export function AdminLayout({ can, authUser }: Props) {
+  const { isDarkMode, colors } = useAppTheme();
   const tabs = useMemo<BottomTabItem[]>(() => {
     return [
       { key: 'home', label: 'Home', icon: 'home' },
@@ -102,7 +104,7 @@ export function AdminLayout({ can, authUser }: Props) {
   }, [authUser.username, currentTab]);
 
   return (
-    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top', 'left', 'right']}>
       <AppHeader
         title={headerCopy.title}
         subtitle={headerCopy.subtitle}
@@ -111,9 +113,9 @@ export function AdminLayout({ can, authUser }: Props) {
 
       <View style={styles.content}>
         {currentTab === 'home' && (
-          <View style={styles.card}>
-            <Text style={styles.sectionTitle}>Welcome Back</Text>
-            <Text style={styles.paragraph}>Use Settings to manage users, departments, and role policies.</Text>
+          <View style={[styles.card, { backgroundColor: colors.surface }]}>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>Welcome Back</Text>
+            <Text style={[styles.paragraph, { color: colors.textMuted }]}>Use Settings to manage users, departments, and role policies.</Text>
           </View>
         )}
 
@@ -131,7 +133,7 @@ export function AdminLayout({ can, authUser }: Props) {
 
         {currentTab === 'settings' && (
           <>
-            <View style={styles.settingsTabBar}>
+            <View style={[styles.settingsTabBar, { backgroundColor: colors.surface }]}> 
               {settingsItems.map((item) => (
                 <Pressable
                   key={item.key}
@@ -139,12 +141,15 @@ export function AdminLayout({ can, authUser }: Props) {
                   style={[
                     styles.settingsTabButton,
                     settingsTab === item.key ? styles.settingsTabButtonActive : undefined,
+                    settingsTab === item.key && isDarkMode ? styles.settingsTabButtonActiveDark : undefined,
                   ]}
                 >
                   <Text
                     style={[
                       styles.settingsTabText,
+                      { color: colors.textMuted },
                       settingsTab === item.key ? styles.settingsTabTextActive : undefined,
+                      settingsTab === item.key && isDarkMode ? styles.settingsTabTextActiveDark : undefined,
                     ]}
                   >
                     {item.label}
@@ -239,6 +244,9 @@ const styles = StyleSheet.create({
   settingsTabButtonActive: {
     backgroundColor: '#efe4ff',
   },
+  settingsTabButtonActiveDark: {
+    backgroundColor: '#312b52',
+  },
   settingsTabText: {
     fontSize: 12,
     color: '#5e6a84',
@@ -247,5 +255,8 @@ const styles = StyleSheet.create({
   },
   settingsTabTextActive: {
     color: '#6d28d9',
+  },
+  settingsTabTextActiveDark: {
+    color: '#c4b5fd',
   },
 });

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { SuccessPopup } from '../../components/SuccessPopup';
 import { client } from '../../lib/amplifyClient';
 import type { Department, PermissionCheck } from '../../types';
 
@@ -13,6 +14,10 @@ export function DepartmentManagementScreen({ can }: Props) {
   const [description, setDescription] = useState('');
   const [editingId, setEditingId] = useState('');
   const [message, setMessage] = useState('');
+  const [isCreating, setIsCreating] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [deletingId, setDeletingId] = useState('');
+  const [successPopup, setSuccessPopup] = useState({ visible: false, title: '', description: '' });
 
   const loadDepartments = useCallback(async () => {
     const response = await client.models.Department.list();
@@ -34,6 +39,7 @@ export function DepartmentManagementScreen({ can }: Props) {
     }
 
     try {
+      setIsCreating(true);
       await client.models.Department.create({
         name: name.trim(),
         description: description.trim(),
@@ -42,9 +48,12 @@ export function DepartmentManagementScreen({ can }: Props) {
       setName('');
       setDescription('');
       setMessage('Department created.');
+      setSuccessPopup({ visible: true, title: 'Department Created', description: 'The department has been created successfully.' });
       await loadDepartments();
     } catch (error: unknown) {
       setMessage((error as Error).message);
+    } finally {
+      setIsCreating(false);
     }
   }, [can, description, loadDepartments, name]);
 
@@ -65,6 +74,7 @@ export function DepartmentManagementScreen({ can }: Props) {
     }
 
     try {
+      setIsSaving(true);
       await client.models.Department.update({
         id: editingId,
         name: name.trim(),
@@ -74,9 +84,12 @@ export function DepartmentManagementScreen({ can }: Props) {
       setName('');
       setDescription('');
       setMessage('Department updated.');
+      setSuccessPopup({ visible: true, title: 'Department Updated', description: 'Department changes were saved successfully.' });
       await loadDepartments();
     } catch (error: unknown) {
       setMessage((error as Error).message);
+    } finally {
+      setIsSaving(false);
     }
   }, [can, description, editingId, loadDepartments, name]);
 
@@ -87,11 +100,15 @@ export function DepartmentManagementScreen({ can }: Props) {
         return;
       }
       try {
+        setDeletingId(id);
         await client.models.Department.delete({ id });
         setMessage('Department deleted.');
+        setSuccessPopup({ visible: true, title: 'Department Deleted', description: 'The department was removed successfully.' });
         await loadDepartments();
       } catch (error: unknown) {
         setMessage((error as Error).message);
+      } finally {
+        setDeletingId('');
       }
     },
     [can, loadDepartments],
@@ -119,9 +136,9 @@ export function DepartmentManagementScreen({ can }: Props) {
             <Pressable
               style={[styles.primaryButton, styles.flexButton, !can('departments', 'edit') ? styles.buttonDisabled : undefined]}
               onPress={() => void saveEdit()}
-              disabled={!can('departments', 'edit')}
+              disabled={!can('departments', 'edit') || isSaving}
             >
-              <Text style={styles.primaryButtonText}>Save</Text>
+              <Text style={styles.primaryButtonText}>{isSaving ? 'Saving...' : 'Save'}</Text>
             </Pressable>
             <Pressable
               style={[styles.secondaryButton, styles.flexButton]}
@@ -138,9 +155,9 @@ export function DepartmentManagementScreen({ can }: Props) {
           <Pressable
             style={[styles.primaryButton, !can('departments', 'create') ? styles.buttonDisabled : undefined]}
             onPress={() => void createDepartment()}
-            disabled={!can('departments', 'create')}
+            disabled={!can('departments', 'create') || isCreating}
           >
-            <Text style={styles.primaryButtonText}>Create Department</Text>
+            <Text style={styles.primaryButtonText}>{isCreating ? 'Creating...' : 'Create Department'}</Text>
           </Pressable>
         )}
       </View>
@@ -163,9 +180,9 @@ export function DepartmentManagementScreen({ can }: Props) {
               <Pressable
                 style={[styles.dangerButton, styles.flexButton, !can('departments', 'delete') ? styles.buttonDisabled : undefined]}
                 onPress={() => void deleteDepartment(department.id)}
-                disabled={!can('departments', 'delete')}
+                disabled={!can('departments', 'delete') || deletingId === department.id}
               >
-                <Text style={styles.dangerButtonText}>Delete</Text>
+                <Text style={styles.dangerButtonText}>{deletingId === department.id ? 'Deleting...' : 'Delete'}</Text>
               </Pressable>
             </View>
           </View>
@@ -173,6 +190,13 @@ export function DepartmentManagementScreen({ can }: Props) {
       </View>
 
       {!!message && <Text style={styles.message}>{message}</Text>}
+
+      <SuccessPopup
+        visible={successPopup.visible}
+        title={successPopup.title}
+        description={successPopup.description}
+        onClose={() => setSuccessPopup({ visible: false, title: '', description: '' })}
+      />
     </ScrollView>
   );
 }

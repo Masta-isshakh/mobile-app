@@ -38,6 +38,8 @@ export function UserManagementScreen({ can }: Props) {
   const [inviteEmail, setInviteEmail] = useState('');
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [deletingUserId, setDeletingUserId] = useState('');
   const [showInviteSuccess, setShowInviteSuccess] = useState(false);
   const [inviteSuccessText, setInviteSuccessText] = useState('');
 
@@ -225,6 +227,7 @@ export function UserManagementScreen({ can }: Props) {
     }
 
     try {
+      setIsSaving(true);
       await client.models.AppUser.update({
         id: editing.id,
         username: editing.username.trim(),
@@ -246,9 +249,13 @@ export function UserManagementScreen({ can }: Props) {
 
       setEditing(null);
       setMessage('User updated successfully.');
+      setInviteSuccessText('User details were updated successfully.');
+      setShowInviteSuccess(true);
       await loadData();
     } catch (error: unknown) {
       setMessage(`Update failed: ${(error as Error).message}`);
+    } finally {
+      setIsSaving(false);
     }
   }, [can, editing, loadData, userRoleMap]);
 
@@ -260,6 +267,7 @@ export function UserManagementScreen({ can }: Props) {
       }
 
       try {
+        setDeletingUserId(user.id);
         const cognitoUsername = user.cognitoUsername || user.email;
         await client.mutations.adminDeleteUser({
           cognitoUsername,
@@ -273,9 +281,13 @@ export function UserManagementScreen({ can }: Props) {
         await client.models.AppUser.delete({ id: user.id });
 
         setMessage(`User ${user.username} deleted from Cognito and app records.`);
+        setInviteSuccessText(`User ${user.username} was deleted successfully.`);
+        setShowInviteSuccess(true);
         await loadData();
       } catch (error: unknown) {
         setMessage(`Delete failed: ${(error as Error).message}`);
+      } finally {
+        setDeletingUserId('');
       }
     },
     [can, loadData, userRoles],
@@ -398,9 +410,9 @@ export function UserManagementScreen({ can }: Props) {
             <Pressable
               style={[styles.primaryButton, styles.flexButton, !can('users', 'edit') ? styles.buttonDisabled : undefined]}
               onPress={saveEdit}
-              disabled={!can('users', 'edit')}
+              disabled={!can('users', 'edit') || isSaving}
             >
-              <Text style={styles.primaryButtonText}>Save</Text>
+              <Text style={styles.primaryButtonText}>{isSaving ? 'Saving...' : 'Save'}</Text>
             </Pressable>
             <Pressable
               style={[styles.secondaryButton, styles.flexButton]}
@@ -443,9 +455,9 @@ export function UserManagementScreen({ can }: Props) {
                   <Pressable
                     style={[styles.dangerButton, styles.flexButton, !can('users', 'delete') ? styles.buttonDisabled : undefined]}
                     onPress={() => void deleteUser(item)}
-                    disabled={!can('users', 'delete')}
+                    disabled={!can('users', 'delete') || deletingUserId === item.id}
                   >
-                    <Text style={styles.dangerButtonText}>Delete</Text>
+                    <Text style={styles.dangerButtonText}>{deletingUserId === item.id ? 'Deleting...' : 'Delete'}</Text>
                   </Pressable>
                 </View>
               </View>
@@ -458,7 +470,7 @@ export function UserManagementScreen({ can }: Props) {
 
       <SuccessPopup
         visible={showInviteSuccess}
-        title="Invitation Sent"
+        title="Success"
         description={inviteSuccessText}
         onClose={() => setShowInviteSuccess(false)}
       />

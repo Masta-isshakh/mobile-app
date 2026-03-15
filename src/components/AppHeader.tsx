@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useAppTheme } from '../theme/AppThemeContext';
 
 type Props = {
   title: string;
@@ -18,15 +19,17 @@ export function AppHeader({
   cartCount = 0,
   onPressCart,
 }: Props) {
+  const { isDarkMode } = useAppTheme();
+
   return (
-    <View style={styles.wrap}>
+    <View style={[styles.wrap, isDarkMode ? styles.wrapDark : undefined]}>
       <View style={styles.bgLayerOne} />
       <View style={styles.bgLayerTwo} />
       <View style={styles.bgLayerThree} />
 
       <View style={styles.row}>
         <View style={styles.left}>
-          <View style={styles.roleBadge}>
+          <View style={[styles.roleBadge, isDarkMode ? styles.roleBadgeDark : undefined]}>
             <Ionicons
               name={roleLabel === 'Admin' ? 'shield-checkmark' : 'sparkles'}
               size={12}
@@ -44,7 +47,7 @@ export function AppHeader({
         </View>
 
         {showCart ? (
-          <Pressable style={styles.cartButton} onPress={onPressCart}>
+          <Pressable style={[styles.cartButton, isDarkMode ? styles.cartButtonDark : undefined]} onPress={onPressCart}>
             <Ionicons name="cart-outline" size={22} color="#2e1065" />
             {cartCount > 0 && (
               <View style={styles.cartBadge}>
@@ -68,6 +71,9 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     backgroundColor: '#5b21b6',
     overflow: 'hidden',
+  },
+  wrapDark: {
+    backgroundColor: '#312e81',
   },
   bgLayerOne: {
     position: 'absolute',
@@ -120,6 +126,9 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.22)',
     marginBottom: 8,
   },
+  roleBadgeDark: {
+    backgroundColor: 'rgba(255,255,255,0.17)',
+  },
   roleBadgeText: {
     fontSize: 11,
     fontWeight: '700',
@@ -150,6 +159,9 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.2,
     shadowRadius: 10,
     elevation: 8,
+  },
+  cartButtonDark: {
+    backgroundColor: '#e9e7ff',
   },
   cartBadge: {
     position: 'absolute',

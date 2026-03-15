@@ -3,6 +3,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as ImageManipulator from 'expo-image-manipulator';
 import * as ImagePicker from 'expo-image-picker';
 import {
+  ActivityIndicator,
   Alert,
   Image,
   Modal,
@@ -16,7 +17,10 @@ import {
   useWindowDimensions,
 } from 'react-native';
 
+import { SuccessPopup } from '../../components/SuccessPopup';
 import { client } from '../../lib/amplifyClient';
+import { useAppTheme } from '../../theme/AppThemeContext';
+import { formatQar } from '../../utils/currency';
 import type { AuthUserContext, Product, ProductRating, StoreProduct } from '../../types';
 
 type Props = {
@@ -46,10 +50,14 @@ function StarRow({ value, size = 18 }: { value: number; size?: number }) {
 }
 
 export function ProductCatalogScreen({ authUser, isAdmin, onSelectProduct }: Props) {
+  const { colors } = useAppTheme();
   const [products, setProducts] = useState<Product[]>([]);
   const [ratings, setRatings] = useState<ProductRating[]>([]);
   const [storeItems, setStoreItems] = useState<StoreProduct[]>([]);
   const [message, setMessage] = useState('');
+  const [isLoading, setIsLoading] = useState(true);
+  const [processingProductId, setProcessingProductId] = useState<string | null>(null);
+  const [successPopup, setSuccessPopup] = useState({ visible: false, title: '', description: '' });
 
   const [createVisible, setCreateVisible] = useState(false);
   const [editVisible, setEditVisible] = useState(false);
@@ -68,15 +76,20 @@ export function ProductCatalogScreen({ authUser, isAdmin, onSelectProduct }: Pro
   const cardWidth = Math.max(Math.floor((windowWidth - horizontalPadding - cardGap) / 2), 150);
 
   const loadData = useCallback(async () => {
-    const [productsResponse, ratingsResponse, storeResponse] = await Promise.all([
-      client.models.ProductX.list(),
-      client.models.ProductRating.list(),
-      client.models.StoreProduct.list({ filter: { ownerSub: { eq: authUser.sub } } }),
-    ]);
+    setIsLoading(true);
+    try {
+      const [productsResponse, ratingsResponse, storeResponse] = await Promise.all([
+        client.models.ProductX.list(),
+        client.models.ProductRating.list(),
+        client.models.StoreProduct.list({ filter: { ownerSub: { eq: authUser.sub } } }),
+      ]);
 
-    setProducts((productsResponse.data ?? []) as Product[]);
-    setRatings((ratingsResponse.data ?? []) as ProductRating[]);
-    setStoreItems((storeResponse.data ?? []) as StoreProduct[]);
+      setProducts((productsResponse.data ?? []) as Product[]);
+      setRatings((ratingsResponse.data ?? []) as ProductRating[]);
+      setStoreItems((storeResponse.data ?? []) as StoreProduct[]);
+    } finally {
+      setIsLoading(false);
+    }
   }, [authUser.sub]);
 
   useEffect(() => {
@@ -189,6 +202,11 @@ export function ProductCatalogScreen({ authUser, isAdmin, onSelectProduct }: Pro
       setCreateVisible(false);
       resetForm();
       setMessage('Product created successfully.');
+      setSuccessPopup({
+        visible: true,
+        title: 'Product Created',
+        description: 'Your product is now available in the catalog.',
+      });
       await loadData();
     } catch (error: unknown) {
       setMessage((error as Error).message);
@@ -235,6 +253,11 @@ export function ProductCatalogScreen({ authUser, isAdmin, onSelectProduct }: Pro
       setEditVisible(false);
       resetForm();
       setMessage('Product updated successfully.');
+      setSuccessPopup({
+        visible: true,
+        title: 'Product Updated',
+        description: 'Changes were saved successfully.',
+      });
       await loadData();
     } catch (error: unknown) {
       setMessage((error as Error).message);
@@ -251,12 +274,20 @@ export function ProductCatalogScreen({ authUser, isAdmin, onSelectProduct }: Pro
         style: 'destructive',
         onPress: () => {
           void (async () => {
+            setProcessingProductId(product.id);
             try {
               await client.models.ProductX.delete({ id: product.id });
               setMessage('Product deleted.');
+              setSuccessPopup({
+                visible: true,
+                title: 'Product Deleted',
+                description: 'The selected product was removed successfully.',
+              });
               await loadData();
             } catch (error: unknown) {
               setMessage((error as Error).message);
+            } finally {
+              setProcessingProductId(null);
             }
           })();
         },
@@ -271,6 +302,7 @@ export function ProductCatalogScreen({ authUser, isAdmin, onSelectProduct }: Pro
         return;
       }
 
+      setProcessingProductId(productId);
       try {
         await client.models.StoreProduct.create({
           productId,
@@ -278,9 +310,16 @@ export function ProductCatalogScreen({ authUser, isAdmin, onSelectProduct }: Pro
           ownerUsername: authUser.username,
         });
         setMessage('Product added to your store.');
+        setSuccessPopup({
+          visible: true,
+          title: 'Added To Store',
+          description: 'The product has been added to your store successfully.',
+        });
         await loadData();
       } catch (error: unknown) {
         setMessage((error as Error).message);
+      } finally {
+        setProcessingProductId(null);
       }
     },
     [authUser.sub, authUser.username, loadData, storedProductIds],
@@ -289,11 +328,11 @@ export function ProductCatalogScreen({ authUser, isAdmin, onSelectProduct }: Pro
   const sortedProducts = useMemo(() => [...products].reverse(), [products]);
 
   return (
-    <View style={styles.wrap}>
+    <View style={[styles.wrap, { backgroundColor: colors.background }]}> 
       <View style={styles.topBar}>
-        <Text style={styles.title}>Products</Text>
+        <Text style={[styles.title, { color: colors.text }]}>Products</Text>
         {isAdmin && (
-          <Pressable style={styles.uploadButton} onPress={() => setCreateVisible(true)}>
+          <Pressable style={[styles.uploadButton, { backgroundColor: colors.primary }]} onPress={() => setCreateVisible(true)}>
             <Ionicons name="add-circle-outline" size={16} color="#ffffff" />
             <Text style={styles.uploadButtonText}>Create Product</Text>
           </Pressable>
@@ -302,7 +341,14 @@ export function ProductCatalogScreen({ authUser, isAdmin, onSelectProduct }: Pro
 
       {!!message && <Text style={styles.message}>{message}</Text>}
 
-      <ScrollView
+      {isLoading && (
+        <View style={styles.loaderWrap}>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={[styles.loaderText, { color: colors.textMuted }]}>Loading products...</Text>
+        </View>
+      )}
+
+      {!isLoading && <ScrollView
         contentContainerStyle={[
           styles.contentWrap,
           {
@@ -315,7 +361,7 @@ export function ProductCatalogScreen({ authUser, isAdmin, onSelectProduct }: Pro
         ]}
       >
         {sortedProducts.length === 0 && (
-          <View style={styles.emptyCard}>
+          <View style={[styles.emptyCard, { backgroundColor: colors.surface }]}> 
             <Text style={styles.emptyTitle}>No Products Yet</Text>
             <Text style={styles.emptyText}>Admins can create products. Freelancers can browse and add them to their store.</Text>
           </View>
@@ -338,6 +384,7 @@ export function ProductCatalogScreen({ authUser, isAdmin, onSelectProduct }: Pro
                   shadowRadius: 16,
                   elevation: Platform.OS === 'android' ? 7 : 0,
                 },
+                { backgroundColor: colors.surface },
               ]}
               onPress={() => onSelectProduct?.(product)}
             >
@@ -350,11 +397,11 @@ export function ProductCatalogScreen({ authUser, isAdmin, onSelectProduct }: Pro
               )}
 
               <Text style={styles.cardTitle} numberOfLines={2}>{product.name}</Text>
-              <Text style={styles.priceText}>${(product.price ?? 0).toFixed(2)}</Text>
+              <Text style={styles.priceText}>{formatQar(product.price ?? 0)}</Text>
               {!!product.description && (
                 <Text style={styles.cardText} numberOfLines={2}>{product.description}</Text>
               )}
-              <Text style={styles.metaText}>By {product.creatorUsername}</Text>
+              {isAdmin && <Text style={styles.metaText}>By {product.creatorUsername}</Text>}
 
               <View style={styles.compactRating}>
                 <StarRow value={summary.average} size={12} />
@@ -372,30 +419,33 @@ export function ProductCatalogScreen({ authUser, isAdmin, onSelectProduct }: Pro
                     <Text style={styles.adminButtonText}>Edit</Text>
                   </Pressable>
                   <Pressable
-                    style={styles.deleteButton}
+                    style={[styles.deleteButton, processingProductId === product.id ? styles.storeButtonDisabled : undefined]}
                     onPress={() => deleteProduct(product)}
+                    disabled={processingProductId === product.id}
                   >
-                    <Text style={styles.adminButtonText}>Delete</Text>
+                    <Text style={styles.adminButtonText}>{processingProductId === product.id ? 'Deleting...' : 'Delete'}</Text>
                   </Pressable>
                 </View>
               ) : (
                 <Pressable
-                  style={[styles.storeButton, alreadyInStore ? styles.storeButtonDisabled : undefined]}
-                  disabled={alreadyInStore}
+                  style={[styles.storeButton, { backgroundColor: colors.primary }, (alreadyInStore || processingProductId === product.id) ? styles.storeButtonDisabled : undefined]}
+                  disabled={alreadyInStore || processingProductId === product.id}
                   onPress={() => void addToStore(product.id)}
                 >
-                  <Text style={styles.storeButtonText}>{alreadyInStore ? 'In My Store' : 'Add to Store'}</Text>
+                  <Text style={styles.storeButtonText}>
+                    {alreadyInStore ? 'In My Store' : processingProductId === product.id ? 'Adding...' : 'Add to Store'}
+                  </Text>
                 </Pressable>
               )}
             </Pressable>
           );
         })}
-      </ScrollView>
+      </ScrollView>}
 
       <Modal visible={createVisible} transparent animationType="fade" onRequestClose={() => setCreateVisible(false)}>
         <View style={styles.modalOverlay}>
           <Pressable style={StyleSheet.absoluteFill} onPress={() => setCreateVisible(false)} />
-          <View style={styles.modalCard}>
+          <View style={[styles.modalCard, { backgroundColor: colors.surface }]}>
             <Text style={styles.modalTitle}>Create Product</Text>
 
             <TextInput style={styles.input} value={name} onChangeText={setName} placeholder="Product name" />
@@ -445,7 +495,7 @@ export function ProductCatalogScreen({ authUser, isAdmin, onSelectProduct }: Pro
                 <Text style={styles.cancelText}>Cancel</Text>
               </Pressable>
               <Pressable
-                style={[styles.submitButton, uploading ? styles.submitDisabled : undefined]}
+                style={[styles.submitButton, { backgroundColor: colors.primary }, uploading ? styles.submitDisabled : undefined]}
                 onPress={() => void createProduct()}
                 disabled={uploading}
               >
@@ -459,7 +509,7 @@ export function ProductCatalogScreen({ authUser, isAdmin, onSelectProduct }: Pro
       <Modal visible={editVisible} transparent animationType="fade" onRequestClose={() => setEditVisible(false)}>
         <View style={styles.modalOverlay}>
           <Pressable style={StyleSheet.absoluteFill} onPress={() => setEditVisible(false)} />
-          <View style={styles.modalCard}>
+          <View style={[styles.modalCard, { backgroundColor: colors.surface }]}>
             <Text style={styles.modalTitle}>Edit Product</Text>
 
             <TextInput style={styles.input} value={name} onChangeText={setName} placeholder="Product name" />
@@ -496,7 +546,7 @@ export function ProductCatalogScreen({ authUser, isAdmin, onSelectProduct }: Pro
                 <Text style={styles.cancelText}>Cancel</Text>
               </Pressable>
               <Pressable
-                style={[styles.submitButton, uploading ? styles.submitDisabled : undefined]}
+                style={[styles.submitButton, { backgroundColor: colors.primary }, uploading ? styles.submitDisabled : undefined]}
                 onPress={() => void saveEdit()}
                 disabled={uploading}
               >
@@ -506,6 +556,13 @@ export function ProductCatalogScreen({ authUser, isAdmin, onSelectProduct }: Pro
           </View>
         </View>
       </Modal>
+
+      <SuccessPopup
+        visible={successPopup.visible}
+        title={successPopup.title}
+        description={successPopup.description}
+        onClose={() => setSuccessPopup({ visible: false, title: '', description: '' })}
+      />
     </View>
   );
 }
@@ -544,6 +601,16 @@ const styles = StyleSheet.create({
     marginHorizontal: 12,
     marginBottom: 8,
     color: '#9a3412',
+    fontWeight: '600',
+  },
+  loaderWrap: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    marginTop: 28,
+  },
+  loaderText: {
+    fontSize: 14,
     fontWeight: '600',
   },
   contentWrap: {
